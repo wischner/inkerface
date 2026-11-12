@@ -1,0 +1,10 @@
+# All intermediate artifacts live under build/, final binaries under bin/.
+/build/
+/bin/
+/.pio/
+compile_commands.json
+*.pbm
+
+# Downloaded dependency cache and interrupted download staging directories.
+/lib/freeink-sdk/
+/lib/.freeink-sdk-*/

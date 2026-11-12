@@ -1,0 +1,12 @@
+{
+  "name": "inkerface",
+  "version": "0.1.0",
+  "description": "inkerface platform layer: snake_case drawing, input, storage and network API over the FreeInk SDK. Device build only; the host backend is built by CMake.",
+  "license": "MIT",
+  "dependencies": {},
+  "platforms": "espressif32",
+  "frameworks": ["arduino"],
+  "build": {
+    "srcFilter": ["+<freeink/>", "+<common/>", "+<posix/>", "+<net/>", "+<x4/>", "-<host/>"]
+  }
+}

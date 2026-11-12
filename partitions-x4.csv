@@ -1,0 +1,16 @@
+# Xteink X4 flash layout (16 MB). Two 3 MB firmware slots allow safe
+# updates (FreeInk RecoveryBoot flashes /update.bin into the other slot);
+# the 9.9 MB "spiffs" data partition holds the LittleFS internal volume.
+# The name and subtype stay "spiffs" because that is the partition Arduino's
+# LittleFS.begin() looks for; the filesystem on it is LittleFS.
+#
+# MIT License (see: LICENSE)
+# Copyright (C) 2026 Tomaz Stih
+#
+# Name,    Type, SubType,  Offset,   Size
+nvs,       data, nvs,      0x9000,   0x5000
+otadata,   data, ota,      0xe000,   0x2000
+app0,      app,  ota_0,    0x10000,  0x300000
+app1,      app,  ota_1,    0x310000, 0x300000
+spiffs,    data, spiffs,   0x610000, 0x9E0000
+coredump,  data, coredump, 0xFF0000, 0x10000
