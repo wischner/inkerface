@@ -34,20 +34,22 @@ lib/inkerface/src/   platform layer, the only code that includes FreeInk
   freeink/           surface implemented on FreeInkUI's DisplayTarget;
                      font slots, built-in fonts (fonts/) and the font loader
   common/            storage, file and directory logic shared by all targets
-  posix/             POSIX file primitives (host, and X4 internal flash)
+  posix/             POSIX file primitives for X4 internal flash
   net/               sockets and HTTP on FreeInk's SecureClient and
                      SecureHttpClient (shared by all targets)
-  host/              host backend: in-memory X4 panel, stdin input, folder
-                     volumes, OpenSSL TLS, main()
+  host/              native backend: in-memory X4 panel, stdin input, disk
+                     images (littlefs/FAT), OpenSSL TLS, main()
     arduino/         minimal Arduino API (POSIX sockets) for FreeInk's
                      network code on the host
   x4/                device backend: FreeInkDisplay, InputManager, LittleFS,
                      SDCardManager, Wi-Fi, setup()
 lib/freeink-sdk/     FreeInk SDK (ignored download cache, unmodified)
+lib/host-filesystems/ native-only littlefs/FatFs source cache (ignored)
 src/app/             application class, main loop, program()
 src/screens/         application screens (platform API only)
 src/assets/          embedded monochrome logo generated from assets/logos/l1.png
 tools/               SDK download, logo and font generators (make_font.py)
+docker/              Dockerfiles and supporting build configuration (reserved)
 tests/unit/          host unit tests
 tests/isolation/     check that FreeInk stays in lib/inkerface/src/
 partitions-x4.csv    X4 flash layout: two 3 MB firmware slots, LittleFS data
@@ -57,6 +59,12 @@ build/  bin/         generated; not committed
 The platform layer is a library in `lib/inkerface/src/` with its public
 headers in `include/inkerface/`, as the project standards require; the
 layout follows [native](https://github.com/wischner/native).
+
+Future container builds will keep their definitions in `docker/`, stage
+generated files and image exports under `build/docker/`, and place final
+exported image archives under `bin/docker/`. Docker's own image store is
+managed separately by the container engine. No container build targets
+are implemented yet.
 
 ## Getting FreeInk
 
@@ -93,8 +101,9 @@ two ways:
 
 ## Building for the host
 
-You need G++ with C++20 support (G++ 15 is tested), CMake 3.20 or newer,
-and GNU make. The desktop preview also needs X11 development headers
+You need GCC/G++ with C99/C++20 support (GCC 15 is tested), CMake 3.20 or
+newer, GNU make, Python 3, and `patch`. The desktop preview also needs X11
+development headers
 (`libx11-dev` on Debian/Ubuntu) and an X11 or XWayland desktop session.
 For headless builds without X11, use `make PREVIEW=OFF`. HTTPS and TLS
 sockets on the host use OpenSSL (`libssl-dev`); build without it with
@@ -107,6 +116,7 @@ make release    # hardened -O2 build -> bin/release/
 make run        # renders the hello world frame to bin/debug/hello_world.pbm
 make preview    # opens the live 480x800 X4 framebuffer in a desktop window
 make fonts      # regenerates the built-in fonts (Pillow and Noto Sans needed)
+make storage-images # initializes missing native storage images
 ```
 
 The host emulates the X4 panel (800x480 native, 480x800 portrait) and
@@ -122,12 +132,55 @@ printf 'confirm\nback\n' | INKERFACE_FRAME_PATH=frame.pbm bin/debug/inkerface
 To use a FreeInk checkout somewhere else, pass
 `make FREEINK=/path/to/freeink-sdk`.
 
-Storage volumes are emulated as folders under `INKERFACE_STORAGE_ROOT`
-(`internal/` and `card/`). `make run`, `make preview` and F5 set it to
-`build/storage`, so `make clean` wipes them; pass `make run
-STORAGE=/some/folder` to keep them elsewhere. Without the variable every
-volume reports `unavailable`, so tests and scripts never write somewhere
-unexpected.
+Native storage runs the actual filesystem libraries over ordinary image
+files under `INKERFACE_STORAGE_ROOT`, without mounts, root privileges or
+QEMU:
+
+| Image | Filesystem | Capacity |
+| --- | --- | --- |
+| `internal.lfs` | littlefs 2.11.3 | `0x9E0000` bytes, matching the X4 data partition |
+| `card.fat` | FAT16, using FatFs R0.16 with upstream patches 1 and 2 | 32 MiB |
+
+Images are created and formatted only when missing, on the volume's first
+use. Existing images must match these capacities; invalid images report
+`unavailable` and are never automatically reformatted. Images are locked
+against concurrent access. Close the preview before editing its images
+with another process. FAT names are case-insensitive and reject reserved
+characters and trailing spaces/dots; the native card supports FAT12/16/32,
+not exFAT. Flash programming enforces erase-before-setting-bits semantics,
+but this does not model flash timing, endurance, or physical power loss.
+
+`make run`, `make preview`, `make storage-images` and F5 use `build/storage`.
+`make clean` deletes those images; use `STORAGE=/some/folder` to keep them
+elsewhere. Without `INKERFACE_STORAGE_ROOT`, volumes remain unavailable.
+The hello-world screen does not access storage; `make storage-images`
+initializes both volumes explicitly. Old `internal/` and `card/` folders
+are left untouched and are not automatically imported.
+
+Use the native storage utility to populate or inspect images:
+
+```sh
+make storage-images
+export INKERFACE_STORAGE_ROOT="$PWD/build/storage"
+bin/debug/inkerface_storage mkdir card books
+bin/debug/inkerface_storage put card /path/to/book.epub books/book.epub
+bin/debug/inkerface_storage ls card books
+bin/debug/inkerface_storage get card books/book.epub /tmp/book.epub
+```
+
+`put` and `get` replace the destination file. Use `internal` instead of
+`card` for internal storage. The application API is unchanged; display,
+buttons, rendering and networking still run natively with the existing
+FreeInk integration. Device builds retain their FreeInk/SdFat storage.
+
+`make filesystems` downloads checksum-pinned native sources into the ignored
+`lib/host-filesystems/` cache; normal host builds invoke it automatically.
+Downloads and staging go through `build/`. Direct CMake builds need
+`make sdk filesystems` first. `make clean` preserves dependency caches;
+`make purge` removes them. Upstream code and notices remain in the cache:
+[littlefs](https://github.com/littlefs-project/littlefs/releases/tag/v2.11.3)
+uses BSD-3-Clause; [FatFs](https://elm-chan.org/fsw/ff/) has a permissive
+notice in its source files. No filesystem sources are copied from FreeInk.
 
 ## F5 desktop preview
 

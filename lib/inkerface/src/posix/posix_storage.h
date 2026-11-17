@@ -1,7 +1,7 @@
 //
 // Declares storage primitives over POSIX file descriptors and native
-// paths. Used by the host for both volumes and by the X4 for internal
-// flash (LittleFS behind ESP-IDF's VFS). Only calls ESP-IDF's VFS
+// paths. Used by the X4 for internal flash (LittleFS behind ESP-IDF's
+// VFS). The native backend uses image files. Only calls ESP-IDF's VFS
 // supports are used: no statvfs, dirfd, *at() calls or stdio buffers.
 //
 // MIT License (see: LICENSE)

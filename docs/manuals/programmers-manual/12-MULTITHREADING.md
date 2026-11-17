@@ -541,9 +541,12 @@ mkdir -p build/pager
 printf 'Hello from the pager\nMeeting moved to 3 pm\n' > build/pager/messages.txt
 python3 -m http.server 8000 --bind 127.0.0.1 --directory build/pager &
 
-mkdir -p build/storage/internal
-printf 'my-wifi\nsecret\n' > build/storage/internal/wifi.txt
-printf 'http://127.0.0.1:8000/messages.txt\n5\n' > build/storage/internal/pager.txt
+make storage-images
+export INKERFACE_STORAGE_ROOT="$PWD/build/storage"
+printf 'my-wifi\nsecret\n' > build/wifi.txt
+printf 'http://127.0.0.1:8000/messages.txt\n5\n' > build/pager.txt
+bin/debug/inkerface_storage put internal build/wifi.txt wifi.txt
+bin/debug/inkerface_storage put internal build/pager.txt pager.txt
 make preview
 ```
 

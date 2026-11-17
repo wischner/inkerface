@@ -15,9 +15,9 @@ lib/inkerface/src/   platform layer (the only code that includes FreeInk)
    freeink/          surface -> FreeInkUI DisplayTarget, font slots and the
                      font loader, built-in fonts in fonts/ (shared)
    common/           storage, file, directory over platform primitives (shared)
-   posix/            POSIX file primitives (host volumes, X4 internal flash)
+   posix/            POSIX file primitives (X4 internal flash)
    net/              tcp_socket, http_client over FreeInk SecureNet (shared)
-   host/             in-memory X4 panel, stdin input, folder volumes, main(),
+   host/             in-memory X4 panel, stdin input, image volumes, main(),
                      OpenSSL SecureClient, arduino/ API stand-in
    x4/               FreeInkDisplay, InputManager, LittleFS, SDCardManager,
                      Wi-Fi, Arduino setup()/loop()
@@ -84,14 +84,20 @@ device frames for the same panel geometry.
   - Errors follow the `std::fstream` model: natural return values plus a
     sticky `storage_error`. Volume operations return `storage_error` or
     `std::optional`.
-  - Volumes mount lazily (no power or time until first use). I/O is
-    unbuffered; size and position are tracked in memory. The device code
+  - Volumes mount lazily (no power or time until first use). The wrapper
+    adds no buffering; filesystem engines cache blocks. Size and position
+    are tracked in memory. The device code
     avoids stdio buffers, iostreams and `std::filesystem` to save RAM and
     flash.
   - `rename` never replaces, so POSIX (replaces) and FAT (refuses)
     behave the same.
-  - Host: folders `<INKERFACE_STORAGE_ROOT>/internal` and `/card` over
-    POSIX. X4: internal flash is LittleFS on the `spiffs` partition of
+  - Host: `<INKERFACE_STORAGE_ROOT>/internal.lfs` and `/card.fat` are
+    fixed-capacity image files accessed through littlefs and FatFs.
+    `host/disk_image.cpp` provides bounded I/O, exclusive locks and flash
+    erase behavior; `image_volume.cpp` supplies filesystem callbacks.
+    Only new images are formatted. There is no QEMU or privileged mount.
+    Native sources are pinned independently in `tools/download_filesystems.py`.
+    X4: internal flash is LittleFS on the `spiffs` partition of
     `partitions-x4.csv`, mounted at `/littlefs` with at most 4 open
     handles and reached through the same POSIX code; the card is
     FreeInk's `SDCardManager` (SdFat), whose `FsFile` is held in a
@@ -182,9 +188,10 @@ device frames for the same panel geometry.
   are empty, longer than 255 bytes, start or end with `/`, or contain
   empty names, `.`, `..`, `\` or control characters, before any
   platform code runs, so a path cannot leave its volume. The host opens
-  files with `O_NOFOLLOW` where available; symbolic links placed inside
-  the host storage folders by other programs are not otherwise defended
-  against.
+  regular image files with `O_NOFOLLOW`, locks them, validates their size,
+  and bounds every block access. FAT paths additionally reject reserved
+  characters and trailing dots/spaces to prevent name normalization.
+  Existing images are never reformatted on mount failure.
 - Network data is untrusted. HTTP parsing is FreeInk's; bodies are
   limited by `max_body_bytes` unless streamed. Request header names and
   values containing CR or LF are rejected, so they cannot inject header

@@ -18,6 +18,7 @@ int main() {
     tests::run_hello_world_tests(context);
     tests::run_application_tests(context);
     tests::run_storage_tests(context);
+    tests::run_storage_image_tests(context);
     tests::run_network_tests(context);
     tests::run_font_tests(context);
     std::cout << context.checks() << " checks, " << context.failures()

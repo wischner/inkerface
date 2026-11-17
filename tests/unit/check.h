@@ -58,6 +58,7 @@ void run_surface_tests(test_context &context);
 void run_hello_world_tests(test_context &context);
 void run_application_tests(test_context &context);
 void run_storage_tests(test_context &context);
+void run_storage_image_tests(test_context &context);
 void run_network_tests(test_context &context);
 void run_font_tests(test_context &context);
 

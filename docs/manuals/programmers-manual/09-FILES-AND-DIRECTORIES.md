@@ -894,21 +894,25 @@ make run && make run && make run
 ```
 
 The page shows "Started 3 times" and a log with three lines. On the
-desktop the volumes are ordinary folders. Look inside them:
+desktop the volumes are filesystem images. After closing the preview,
+export a file through the storage utility:
 
 ```sh
-cat build/storage/internal/starts.txt     # 3
-cat build/storage/card/logs/starts.log    # start 1, start 2, start 3
+export INKERFACE_STORAGE_ROOT="$PWD/build/storage"
+bin/debug/inkerface_storage get internal starts.txt /tmp/starts.txt
+cat /tmp/starts.txt     # 3
+bin/debug/inkerface_storage get card logs/starts.log /tmp/starts.log
+cat /tmp/starts.log     # start 1, start 2, start 3
 ```
 
 ## Where the desktop keeps the volumes
 
-The desktop build stores each volume in a folder under the directory
+The desktop build stores each volume in an image file under the directory
 named by the `INKERFACE_STORAGE_ROOT` environment variable:
 
 ```text
-$INKERFACE_STORAGE_ROOT/internal     volume::internal
-$INKERFACE_STORAGE_ROOT/card         volume::card
+$INKERFACE_STORAGE_ROOT/internal.lfs   volume::internal (littlefs)
+$INKERFACE_STORAGE_ROOT/card.fat       volume::card (FAT16)
 ```
 
 `make run`, `make preview` and F5 set it to `build/storage`, so
@@ -916,6 +920,14 @@ $INKERFACE_STORAGE_ROOT/card         volume::card
 `make run STORAGE=/some/folder` to keep them somewhere else. When the
 variable is **not** set, every volume is `unavailable`. A program then
 never writes to an unexpected place, for example while running in a test.
+
+Internal storage has `0x9E0000` bytes, matching the X4 data partition;
+the emulated card has 32 MiB. Missing images are formatted on first use.
+Existing images are never erased or reformatted automatically, and only
+one process can mount an image at a time. No root privileges or operating
+system mounts are needed. `make storage-images` initializes both images;
+the storage tool supports `ls`, `mkdir`, `put` and `get`. Old folder-based
+volumes are left untouched; use `put` to import their files explicitly.
 
 To test code that uses storage, point the variable at a fresh temporary
 folder before creating `storage`. `tests/unit/test_storage.cpp` shows

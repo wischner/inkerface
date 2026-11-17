@@ -7,7 +7,7 @@
 # Copyright (C) 2026 Tomaz Stih
 
 cmake_minimum_required(VERSION 3.20)
-project(inkerface LANGUAGES CXX)
+project(inkerface LANGUAGES C CXX)
 
 include(CTest)
 
@@ -24,6 +24,8 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(FREEINK_SDK_DIR "${CMAKE_SOURCE_DIR}/lib/freeink-sdk"
@@ -69,6 +71,22 @@ add_library(freeink_ui STATIC "${freeink_ui_dir}/src/FreeInkUI.cpp")
 # SYSTEM narrows third-party warning suppression to FreeInk headers.
 target_include_directories(freeink_ui SYSTEM PUBLIC "${freeink_ui_dir}/include")
 
+# Native image files use the real filesystem engines; no mounts or root.
+set(filesystem_dir "${CMAKE_SOURCE_DIR}/lib/host-filesystems")
+if(NOT EXISTS "${filesystem_dir}/VERSION")
+    message(FATAL_ERROR "Native filesystems not cached. Run: make filesystems")
+endif()
+add_library(host_filesystems STATIC
+    "${filesystem_dir}/littlefs/lfs.c"
+    "${filesystem_dir}/littlefs/lfs_util.c"
+    "${filesystem_dir}/fatfs/ff.c"
+    "${filesystem_dir}/fatfs/ffunicode.c")
+target_include_directories(host_filesystems SYSTEM PUBLIC
+    "${filesystem_dir}/littlefs" "${filesystem_dir}/fatfs")
+target_include_directories(host_filesystems PUBLIC
+    lib/inkerface/src/host/filesystem_config)
+target_compile_definitions(host_filesystems PRIVATE LFS_NO_DEBUG LFS_NO_WARN LFS_NO_ERROR)
+
 # --- Platform library: our API over FreeInk ----------------------------
 add_library(inkerface_platform STATIC
     lib/inkerface/src/freeink/canvas.cpp
@@ -78,15 +96,16 @@ add_library(inkerface_platform STATIC
     lib/inkerface/src/host/display.cpp
     lib/inkerface/src/host/input.cpp
     lib/inkerface/src/common/storage.cpp
-    lib/inkerface/src/posix/posix_storage.cpp
     lib/inkerface/src/host/storage.cpp
+    lib/inkerface/src/host/disk_image.cpp
+    lib/inkerface/src/host/image_volume.cpp
     lib/inkerface/src/net/socket.cpp
     lib/inkerface/src/net/http.cpp
     lib/inkerface/src/host/network.cpp
     lib/inkerface/src/host/arduino/arduino_shim.cpp
     lib/inkerface/src/host/secure_client.cpp)
 target_include_directories(inkerface_platform PUBLIC include)
-target_link_libraries(inkerface_platform PRIVATE freeink_ui)
+target_link_libraries(inkerface_platform PRIVATE freeink_ui host_filesystems)
 target_compile_options(inkerface_platform PRIVATE ${inkerface_warnings})
 # Networking runs FreeInk's SecureNet headers unchanged; on the host the
 # Arduino API they need comes from our shim in host/arduino.
@@ -122,8 +141,14 @@ add_executable(inkerface src/app/main.cpp $<TARGET_OBJECTS:inkerface_entry>)
 target_link_libraries(inkerface PRIVATE inkerface_app)
 target_compile_options(inkerface PRIVATE ${inkerface_warnings})
 
+# Inspect and populate native images through the same public storage API.
+add_executable(inkerface_storage tools/storage.cpp)
+target_link_libraries(inkerface_storage PRIVATE inkerface_platform)
+target_compile_options(inkerface_storage PRIVATE ${inkerface_warnings})
+
 # --- Tests -------------------------------------------------------------
 if(BUILD_TESTING)
+    find_package(Python3 REQUIRED COMPONENTS Interpreter)
     add_executable(inkerface_tests
         tests/unit/test_main.cpp
         tests/unit/test_geometry.cpp
@@ -131,11 +156,17 @@ if(BUILD_TESTING)
         tests/unit/test_hello_world.cpp
         tests/unit/test_application.cpp
         tests/unit/test_storage.cpp
+        tests/unit/test_storage_images.cpp
         tests/unit/test_network.cpp
         tests/unit/test_fonts.cpp)
     target_link_libraries(inkerface_tests PRIVATE inkerface_app)
     target_compile_options(inkerface_tests PRIVATE ${inkerface_warnings})
     add_test(NAME unit COMMAND inkerface_tests)
+
+    add_test(NAME storage_images
+        COMMAND "${Python3_EXECUTABLE}"
+                "${CMAKE_SOURCE_DIR}/tests/integration/storage_images.py"
+                "$<TARGET_FILE:inkerface_storage>" "${CMAKE_BINARY_DIR}")
 
     add_test(NAME isolation
         COMMAND "${CMAKE_COMMAND}" -DROOT=${CMAKE_SOURCE_DIR}

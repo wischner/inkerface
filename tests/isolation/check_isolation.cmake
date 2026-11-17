@@ -18,7 +18,7 @@ file(GLOB_RECURSE guarded_files
 
 # Platform library headers and namespaces that only the adapter may use.
 set(forbidden_patterns
-    "#include[ \t]*[<\"](FreeInk|EInkDisplay|InputManager|BoardConfig|XteinkDetect|BatteryMonitor|SDCardManager|SdFat|LittleFS|Arduino|SecureClient|SecureHttpClient|WiFi|Client\\.h|openssl/|esp_|freertos/)"
+    "#include[ \t]*[<\"](FreeInk|EInkDisplay|InputManager|BoardConfig|XteinkDetect|BatteryMonitor|SDCardManager|SdFat|LittleFS|Arduino|SecureClient|SecureHttpClient|WiFi|Client\\.h|openssl/|esp_|freertos/|lfs\\.h|ff\\.h|diskio\\.h)"
     "freeink::"
     "EInkDisplay"
     "lib/inkerface/src")

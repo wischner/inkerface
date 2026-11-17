@@ -359,13 +359,16 @@ On the desktop, create the credentials file once (the content doesn't
 matter there) and run it:
 
 ```sh
-mkdir -p build/storage/internal
-printf 'my-wifi\nsecret\n' > build/storage/internal/wifi.txt
+make storage-images
+printf 'my-wifi\nsecret\n' > build/wifi.txt
+INKERFACE_STORAGE_ROOT="$PWD/build/storage" \
+    bin/debug/inkerface_storage put internal build/wifi.txt wifi.txt
 make run
 ```
 
 The page shows the saved size and content type, and the copy is in
-`build/storage/card/downloads/example.html`. Without internet access, it
+`downloads/example.html` inside `build/storage/card.fat`. Export it with
+the storage utility from chapter 9. Without internet access, it
 shows "Request failed".
 
 On the X4, put your real credentials into `wifi.txt` on the internal

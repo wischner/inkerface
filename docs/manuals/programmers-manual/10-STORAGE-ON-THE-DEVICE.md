@@ -21,7 +21,7 @@ costs in power and flash wear, and the limits you design around.
 | Power loss while writing | safe: LittleFS never leaves a half-written file system | FAT can lose the file being written |
 | Mounted | on first use | on first use; retried later if no card was found |
 
-The desktop build has the same two volumes as folders (chapter 9), so the
+The desktop build has the same two volumes as image files (chapter 9), so the
 same code and the same tests run on both targets.
 
 ## The flash layout

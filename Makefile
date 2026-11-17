@@ -13,7 +13,7 @@ FREEINK    ?= $(CURDIR)/lib/freeink-sdk
 PREVIEW    ?= ON
 # Host TLS (sockets and https) with OpenSSL.
 TLS        ?= ON
-# Host storage volumes live in $(STORAGE)/internal and $(STORAGE)/card.
+# Native storage images live in $(STORAGE)/internal.lfs and card.fat.
 STORAGE    ?= $(CURDIR)/build/storage
 JOBS       ?= $(shell nproc 2>/dev/null || echo 4)
 # Noto Sans TTF files for `make fonts` (Debian/Ubuntu: fonts-noto-core).
@@ -27,22 +27,25 @@ cmake_configure = $(CMAKE) -S . -B build/$(1) \
 	-DINKERFACE_TLS=$(TLS) \
 	-DINKERFACE_BIN_DIR=$(CURDIR)/bin/$(1) $(3)
 
-.PHONY: all sdk debug release sanitize test run preview x4 x4-upload format clean purge fonts
+.PHONY: all sdk filesystems debug release sanitize test run preview storage-images x4 x4-upload format clean purge fonts
 
 all: debug
 
 sdk:
 	$(PYTHON) tools/download_sdk.py "$(FREEINK)"
 
-debug: sdk
+filesystems:
+	$(PYTHON) tools/download_filesystems.py
+
+debug: sdk filesystems
 	$(call cmake_configure,debug,Debug,)
 	$(CMAKE) --build build/debug -j $(JOBS)
 
-release: sdk
+release: sdk filesystems
 	$(call cmake_configure,release,Release,)
 	$(CMAKE) --build build/release -j $(JOBS)
 
-sanitize: sdk
+sanitize: sdk filesystems
 	$(call cmake_configure,sanitize,Debug,-DINKERFACE_SANITIZE=ON)
 	$(CMAKE) --build build/sanitize -j $(JOBS)
 
@@ -59,6 +62,9 @@ run: debug
 
 preview: debug
 	INKERFACE_PREVIEW=1 INKERFACE_STORAGE_ROOT=$(STORAGE) bin/debug/inkerface
+
+storage-images: debug
+	INKERFACE_STORAGE_ROOT=$(STORAGE) bin/debug/inkerface_storage init
 
 # Regenerate the built-in fonts (needs Pillow). Regular is FreeInk's own.
 fonts: sdk
@@ -84,4 +90,4 @@ clean:
 
 # Only purge our managed cache; an external FREEINK checkout is never deleted.
 purge: clean
-	rm -rf lib/freeink-sdk
+	rm -rf lib/freeink-sdk lib/host-filesystems

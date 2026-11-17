@@ -8,3 +8,4 @@ compile_commands.json
 # Downloaded dependency cache and interrupted download staging directories.
 /lib/freeink-sdk/
 /lib/.freeink-sdk-*/
+/lib/host-filesystems/

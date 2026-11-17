@@ -289,10 +289,14 @@ int program(int /*argc*/, char ** /*argv*/) {
 To try it with a reading font on the desktop:
 
 ```sh
-mkdir -p build/storage/card/fonts
+make storage-images
+export INKERFACE_STORAGE_ROOT="$PWD/build/storage"
+mkdir -p bin/fonts
 python3 tools/make_font.py \
     --ttf /usr/share/fonts/truetype/noto/NotoSerif-Regular.ttf \
-    --size 22 --out build/storage/card/fonts/reading.ikf
+    --size 22 --out bin/fonts/reading.ikf
+bin/debug/inkerface_storage mkdir card fonts
+bin/debug/inkerface_storage put card bin/fonts/reading.ikf fonts/reading.ikf
 make preview
 ```
 
