@@ -36,8 +36,13 @@ public:
         if (::pipe(ends) != 0) {
             return;
         }
-        static_cast<void>(::write(ends[1], script.data(), script.size()));
+        // Scripts are far smaller than a pipe buffer, so one write fits.
+        const ssize_t written = ::write(ends[1], script.data(), script.size());
         ::close(ends[1]);
+        if (written != static_cast<ssize_t>(script.size())) {
+            ::close(ends[0]); // stdin stays as it was; the checks then fail
+            return;
+        }
         ::dup2(ends[0], STDIN_FILENO);
         ::close(ends[0]);
     }

@@ -291,12 +291,12 @@ To try it with a reading font on the desktop:
 ```sh
 make storage-images
 export INKERFACE_STORAGE_ROOT="$PWD/build/storage"
-mkdir -p bin/fonts
+mkdir -p build/fonts
 python3 tools/make_font.py \
     --ttf /usr/share/fonts/truetype/noto/NotoSerif-Regular.ttf \
-    --size 22 --out bin/fonts/reading.ikf
-bin/debug/inkerface_storage mkdir card fonts
-bin/debug/inkerface_storage put card bin/fonts/reading.ikf fonts/reading.ikf
+    --size 22 --out build/fonts/reading.ikf
+bin/linux/debug/bin/inkerface_storage mkdir card fonts
+bin/linux/debug/bin/inkerface_storage put card build/fonts/reading.ikf fonts/reading.ikf
 make preview
 ```
 

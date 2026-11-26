@@ -9,31 +9,36 @@ different on real e-paper hardware.
 > project's full warning set. It has not yet run on a physical X4, so
 > panel, button and storage behavior on hardware still need confirming.
 
-## Install PlatformIO
+## What you need
 
-PlatformIO builds the firmware and downloads the ESP32 toolchain on
-first use:
+Only [Docker](https://docs.docker.com/engine/install/). PlatformIO, which
+builds the firmware, runs in a tool image that the Makefile builds from
+`docker/Dockerfile` the first time you need it. The first `make x4` also
+downloads the ESP32 platform, toolchain and Arduino framework, about
+2.4 GB, into `packages/platformio/`. Nothing is installed in your home
+directory, and `make clean` keeps the download.
 
-```sh
-pipx install platformio      # or: python3 -m pip install --user platformio
-pio --version
-```
+To flash, your user needs access to the X4's serial port, usually
+`/dev/ttyACM0`. On most distributions that means being in the `dialout`
+group.
 
 ## Build and flash
 
 ```sh
-make x4            # build the firmware into build/pio/
-make x4-upload     # build and flash over USB
+make x4                          # firmware in build/pio/, library in bin/x4/
+make x4-upload                   # build and flash over USB
+make x4-upload X4_PORT=/dev/ttyACM1
 ```
 
-`make` downloads the FreeInk SDK first if needed, then runs
-`pio run -e x4`. The `x4` environment in `platformio.ini`:
+`make` downloads the FreeInk SDK and PlatformIO's packages first if
+needed, then runs `pio run -e x4` in the tool image. The `x4` environment
+in `platformio.ini`:
 
 - targets the ESP32-C3 (`board = esp32-c3-devkitm-1`) with
   `-DFREEINK_DEVICE_X4=1`, which selects the X4's SSD1677 panel driver;
 - compiles your `src/` and the device half of the platform layer
   (`lib/inkerface/src/freeink/` and `x4/`);
-- links the FreeInk libraries directly from `lib/freeink-sdk/libs/`, and
+- links the FreeInk libraries directly from `packages/freeink-sdk/libs/`, and
   our platform library `lib/inkerface`, which is listed in `lib_deps` by
   name because PlatformIO can't discover it on its own.
 
@@ -55,7 +60,7 @@ is the firmware.
 To see log messages, open the serial console at 115200 baud:
 
 ```sh
-pio device monitor
+make x4-monitor        # Ctrl+C leaves
 ```
 
 ## What happens at power-on
@@ -192,10 +197,11 @@ Most bugs are found in steps 1 and 2, in seconds and without hardware.
 
 | Symptom | Things to check |
 | --- | --- |
-| `make x4` says `pio: command not found` | Install PlatformIO, or pass its path: `make x4 PIO=/path/to/pio` |
+| `make x4` says `docker: command not found` or `permission denied` on the Docker socket | Install Docker, and add your user to the `docker` group |
+| `make x4-upload` can't open the port | Check `X4_PORT` (`ls /dev/ttyACM*`) and that your user is in the port's group (`dialout`) |
 | Linker reports undefined `setup()` or `loop()` | `inkerface` must stay in `lib_deps` in `platformio.ini`, so the platform layer is compiled |
 | Firmware suddenly ~640 KB larger | `lib_archive = yes` was removed from `platformio.ini`; the platform then links every library object, including the whole Wi-Fi stack |
-| Blank panel after flashing | Open `pio device monitor` and look for `inkerface: fatal error`. Some X4 batches use a different panel controller, which the platform layer tries to detect at start-up |
+| Blank panel after flashing | Open `make x4-monitor` and look for `inkerface: fatal error`. Some X4 batches use a different panel controller, which the platform layer tries to detect at start-up |
 | Build errors in your code only on the device | The device compiles with `-std=gnu++2a` and a different G++. Check your code builds warning-free on the desktop first |
 | Upload fails | Use a data-capable USB cable and close any open serial monitor |
 

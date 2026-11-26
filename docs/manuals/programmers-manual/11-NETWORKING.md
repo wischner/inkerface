@@ -454,7 +454,7 @@ matter there) and run it:
 make storage-images
 printf 'my-wifi\nsecret\n' > build/wifi.txt
 INKERFACE_STORAGE_ROOT="$PWD/build/storage" \
-    bin/debug/inkerface_storage put internal build/wifi.txt wifi.txt
+    bin/linux/debug/bin/inkerface_storage put internal build/wifi.txt wifi.txt
 make run
 ```
 
@@ -464,7 +464,7 @@ the storage utility from chapter 9. Without internet access, it
 shows "Request failed".
 
 On the X4, put your real credentials into `wifi.txt` on the internal
-volume, for example with `pio run -e x4 -t uploadfs` from a `data/`
+volume, for example with `make x4-uploadfs` from a `data/`
 folder (chapter 10). Keep that file out of version control.
 
 ## On the device

@@ -41,7 +41,7 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[1]
-gen_font = root / "lib/freeink-sdk/libs/ui/FreeInkUI/tools/gen_font.py"
+gen_font = root / "packages/freeink-sdk/libs/ui/FreeInkUI/tools/gen_font.py"
 
 # Keep fonts "extremely reduced": at most 256 characters, 8-bit metrics.
 max_glyphs = 256

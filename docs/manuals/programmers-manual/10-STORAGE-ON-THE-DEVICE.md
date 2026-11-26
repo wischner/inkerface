@@ -50,9 +50,10 @@ LittleFS volume is never reformatted.
 make the sizes add up to the end of the flash (0x1000000), and flash over
 USB. Moving or resizing the data partition erases the internal volume.
 
-**Putting files on the internal volume at build time:** PlatformIO's
-`pio run -e x4 -t uploadfs` writes the contents of the project's `data/`
-folder into the partition. This replaces everything stored there.
+**Putting files on the internal volume at build time:** `make
+x4-uploadfs` (PlatformIO's `uploadfs`, run in the tool image) writes the
+contents of the project's `data/` folder into the partition. This
+replaces everything stored there.
 
 ## Cost of each operation
 

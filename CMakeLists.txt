@@ -3,6 +3,11 @@
 # platform library, so FreeInk include paths never reach application or
 # test targets. The device build uses platformio.ini instead.
 #
+# Everything is built under build/. `cmake --install` (run by make)
+# stages only the distributable library into bin/linux/<profile>/: headers,
+# libinkerface.a, libinkerface_main.a, a pkg-config file and the
+# storage tool. The demo program and the tests stay in build/.
+#
 # MIT License (see: LICENSE)
 # Copyright (C) 2026 Tomaz Stih
 
@@ -28,10 +33,10 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(FREEINK_SDK_DIR "${CMAKE_SOURCE_DIR}/lib/freeink-sdk"
+set(FREEINK_SDK_DIR "${CMAKE_SOURCE_DIR}/packages/freeink-sdk"
     CACHE PATH "Cached FreeInk SDK checkout")
-set(INKERFACE_BIN_DIR "${CMAKE_SOURCE_DIR}/bin"
-    CACHE PATH "Directory for final binaries")
+set(INKERFACE_VERSION "0.1.0-dev" CACHE STRING
+    "Version recorded in the distribution (make passes the release tag)")
 option(INKERFACE_WERROR "Treat first-party warnings as errors" ON)
 option(INKERFACE_SANITIZE "Build with AddressSanitizer and UBSan" OFF)
 option(INKERFACE_PREVIEW "Build the Linux X11/XWayland desktop preview" ON)
@@ -43,8 +48,6 @@ if(NOT EXISTS "${freeink_ui_dir}/src/FreeInkUI.cpp")
         "FreeInk SDK not found at ${FREEINK_SDK_DIR}. Run:\n"
         "  make sdk")
 endif()
-
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${INKERFACE_BIN_DIR}")
 
 # Warning baseline for first-party code (docs/standards/C++.md, 22).
 set(inkerface_warnings
@@ -72,7 +75,7 @@ add_library(freeink_ui STATIC "${freeink_ui_dir}/src/FreeInkUI.cpp")
 target_include_directories(freeink_ui SYSTEM PUBLIC "${freeink_ui_dir}/include")
 
 # Native image files use the real filesystem engines; no mounts or root.
-set(filesystem_dir "${CMAKE_SOURCE_DIR}/lib/host-filesystems")
+set(filesystem_dir "${CMAKE_SOURCE_DIR}/packages/host-filesystems")
 if(NOT EXISTS "${filesystem_dir}/VERSION")
     message(FATAL_ERROR "Native filesystems not cached. Run: make filesystems")
 endif()
@@ -132,6 +135,42 @@ endif()
 add_library(inkerface_entry OBJECT lib/inkerface/src/host/entry.cpp)
 target_include_directories(inkerface_entry PRIVATE include)
 target_compile_options(inkerface_entry PRIVATE ${inkerface_warnings})
+# The same entry as an archive, for programs built against bin/.
+add_library(inkerface_main STATIC $<TARGET_OBJECTS:inkerface_entry>)
+
+# --- Distribution: one archive, so FreeInk stays an internal detail ----
+# libinkerface.a merges the platform layer with the FreeInkUI and native
+# filesystem archives it links privately; a program then needs only
+# -linkerface and the system libraries listed in inkerface.pc.
+set(inkerface_dist_dir "${CMAKE_BINARY_DIR}/dist")
+set(inkerface_archive "${inkerface_dist_dir}/libinkerface.a")
+file(GENERATE OUTPUT "${inkerface_dist_dir}/libinkerface.mri" CONTENT
+"CREATE ${inkerface_archive}
+ADDLIB $<TARGET_FILE:inkerface_platform>
+ADDLIB $<TARGET_FILE:freeink_ui>
+ADDLIB $<TARGET_FILE:host_filesystems>
+SAVE
+END
+")
+add_custom_command(OUTPUT "${inkerface_archive}"
+    COMMAND "${CMAKE_COMMAND}" -E rm -f "${inkerface_archive}"
+    COMMAND "${CMAKE_COMMAND}" -DAR=${CMAKE_AR}
+            -DSCRIPT=${inkerface_dist_dir}/libinkerface.mri
+            -P "${CMAKE_SOURCE_DIR}/tools/merge_archives.cmake"
+    DEPENDS inkerface_platform freeink_ui host_filesystems
+            "${CMAKE_SOURCE_DIR}/tools/merge_archives.cmake"
+    COMMENT "Merging libinkerface.a"
+    VERBATIM)
+add_custom_target(inkerface_dist ALL DEPENDS "${inkerface_archive}")
+
+set(inkerface_pc_libs "-pthread")
+if(INKERFACE_TLS)
+    string(APPEND inkerface_pc_libs " -lssl -lcrypto")
+endif()
+if(INKERFACE_PREVIEW)
+    string(APPEND inkerface_pc_libs " -lX11")
+endif()
+configure_file(tools/inkerface.pc.in "${inkerface_dist_dir}/inkerface.pc" @ONLY)
 
 # --- Application -------------------------------------------------------
 add_library(inkerface_app STATIC
@@ -148,6 +187,13 @@ target_compile_options(inkerface PRIVATE ${inkerface_warnings})
 add_executable(inkerface_storage tools/storage.cpp)
 target_link_libraries(inkerface_storage PRIVATE inkerface_platform)
 target_compile_options(inkerface_storage PRIVATE ${inkerface_warnings})
+
+# --- Install: the distributable library only (make stages bin/<profile>/)
+install(DIRECTORY include/inkerface DESTINATION include)
+install(FILES "${inkerface_archive}" DESTINATION lib)
+install(TARGETS inkerface_main ARCHIVE DESTINATION lib)
+install(FILES "${inkerface_dist_dir}/inkerface.pc" DESTINATION lib/pkgconfig)
+install(TARGETS inkerface_storage RUNTIME DESTINATION bin)
 
 # --- Tests -------------------------------------------------------------
 if(BUILD_TESTING)

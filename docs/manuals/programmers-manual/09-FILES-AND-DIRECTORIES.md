@@ -899,9 +899,9 @@ export a file through the storage utility:
 
 ```sh
 export INKERFACE_STORAGE_ROOT="$PWD/build/storage"
-bin/debug/inkerface_storage get internal starts.txt /tmp/starts.txt
+bin/linux/debug/bin/inkerface_storage get internal starts.txt /tmp/starts.txt
 cat /tmp/starts.txt     # 3
-bin/debug/inkerface_storage get card logs/starts.log /tmp/starts.log
+bin/linux/debug/bin/inkerface_storage get card logs/starts.log /tmp/starts.log
 cat /tmp/starts.log     # start 1, start 2, start 3
 ```
 

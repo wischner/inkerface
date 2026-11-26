@@ -5,12 +5,12 @@
             "name": "inkerface (X4 preview)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/debug/inkerface",
+            "program": "${workspaceFolder}/build/debug/inkerface",
             "cwd": "${workspaceFolder}",
             "environment": [
                 { "name": "INKERFACE_PREVIEW", "value": "1" },
                 { "name": "INKERFACE_STORAGE_ROOT", "value": "${workspaceFolder}/build/storage" },
-                { "name": "INKERFACE_FRAME_PATH", "value": "${workspaceFolder}/bin/debug/hello_world.pbm" }
+                { "name": "INKERFACE_FRAME_PATH", "value": "${workspaceFolder}/build/debug/hello_world.pbm" }
             ],
             "externalConsole": false,
             "MIMode": "gdb",
@@ -20,7 +20,7 @@
             "name": "inkerface tests (host)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/bin/debug/inkerface_tests",
+            "program": "${workspaceFolder}/build/debug/inkerface_tests",
             "cwd": "${workspaceFolder}",
             "MIMode": "gdb",
             "preLaunchTask": "build debug"

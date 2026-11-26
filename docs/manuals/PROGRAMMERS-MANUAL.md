@@ -20,8 +20,9 @@ small API.
   (`libx11-dev` on Debian and Ubuntu) and an X11 or XWayland session.
 - For HTTPS and TLS on the desktop (chapter 11): OpenSSL development
   headers (`libssl-dev`).
-- For the Xteink X4 (chapter 8 only): [PlatformIO](https://platformio.org/)
-  and a USB cable.
+- For the Xteink X4 (chapter 8 only): [Docker](https://docs.docker.com/engine/install/)
+  and a USB cable. PlatformIO and the ESP32 toolchain run in a tool image
+  that the Makefile builds, so you don't install them.
 
 All code in this manual follows the project's
 [C++ standards](../standards/C++.md). Names are lower `snake_case`, and
@@ -58,7 +59,7 @@ inkerface API      include/inkerface/       display, surface, input, ...
                          │
 platform layer     lib/inkerface/src/       the only code that knows FreeInk
                          │
-FreeInk SDK        lib/freeink-sdk/         downloaded automatically
+FreeInk SDK        packages/freeink-sdk/    downloaded automatically
 ```
 
 You write code only in the top layer. The same code runs on the desktop

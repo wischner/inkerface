@@ -17,6 +17,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <fstream>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -39,6 +40,21 @@ using inkerface::udp_socket;
 std::uint16_t spare_port(network &link) {
     const udp_socket probe(link);
     return probe.port();
+}
+
+// Return true when this process may not take port 1: it is not root and
+// the system reserves the ports below 1024, as Linux does by default.
+// Containers usually lift that (Docker starts unprivileged ports at 0).
+bool low_ports_reserved() {
+    if (::geteuid() == 0) {
+        return false;
+    }
+    std::ifstream limit("/proc/sys/net/ipv4/ip_unprivileged_port_start");
+    int first_unprivileged = 1024;
+    if (!(limit >> first_unprivileged)) {
+        first_unprivileged = 1024;
+    }
+    return first_unprivileged > 1;
 }
 
 std::span<const std::byte> bytes_of(std::string_view text) {
@@ -105,7 +121,7 @@ void listeners(test_context &context) {
     context.check(second.error() == net_error::bind,
                   "a port in use is reported as bind");
 
-    if (::geteuid() != 0) {
+    if (low_ports_reserved()) {
         const tcp_listener privileged(link, 1);
         context.check(privileged.error() == net_error::bind,
                       "a privileged port is reported as bind");

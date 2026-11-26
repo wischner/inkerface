@@ -236,7 +236,7 @@ a session and look at the last frame:
 
 ```sh
 printf 'confirm\nconfirm\nconfirm\npage_prev\n' \
-    | INKERFACE_FRAME_PATH=count.pbm bin/debug/inkerface
+    | INKERFACE_FRAME_PATH=count.pbm build/debug/inkerface
 ```
 
 `count.pbm` now shows "Count: 2". Chapter 7 uses this technique for

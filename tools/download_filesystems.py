@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Cache pinned native filesystem sources and upstream FatFs fixes.
 
-Downloads and staging stay in build/; only selected source files are
-published into lib/host-filesystems. Never installs system packages.
+Downloads and staging stay in packages/.downloads/; only selected source
+files are published into packages/host-filesystems. Never installs system
+packages.
 MIT License (see LICENSE). Copyright (C) 2026 Tomaz Stih.
 """
 
@@ -35,7 +36,7 @@ sources = {
 
 
 def download(name, url, digest):
-    path = root / "build/downloads" / name
+    path = root / "packages/.downloads" / name
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
         with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as out:
@@ -55,7 +56,7 @@ def download(name, url, digest):
 
 
 def main():
-    destination = root / "lib/host-filesystems"
+    destination = root / "packages/host-filesystems"
     marker = "littlefs-2.11.3-fatfs-0.16-p2\n"
     required = ("littlefs/lfs.c", "littlefs/lfs.h", "littlefs/lfs_util.c",
                 "littlefs/lfs_util.h", "littlefs/LICENSE.md", "fatfs/ff.c",
@@ -67,7 +68,7 @@ def main():
             return
         raise RuntimeError(f"incomplete or outdated cache: {destination}")
     archives = {name: download(name, *source) for name, source in sources.items()}
-    with tempfile.TemporaryDirectory(prefix="filesystems-", dir=root / "build") as tmp:
+    with tempfile.TemporaryDirectory(prefix=".filesystems-", dir=root / "packages") as tmp:
         stage = Path(tmp) / "sources"
         (stage / "littlefs").mkdir(parents=True)
         (stage / "fatfs").mkdir()

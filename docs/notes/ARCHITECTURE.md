@@ -25,7 +25,7 @@ lib/inkerface/src/   platform layer (the only code that includes FreeInk)
                      Arduino setup()/loop()
    │  links
    ▼
-lib/freeink-sdk/     ignored SDK download cache, compiled unmodified
+packages/freeink-sdk/ ignored SDK download cache, compiled unmodified
 ```
 
 ## Isolation rules
@@ -156,6 +156,41 @@ device frames for the same panel geometry.
     hosting so a phone on the access point stays connected; the host
     returns a fixed list. Sockets accept a link that is connected or
     hosting.
+- **Host distribution.** Everything is built under `build/<profile>/`;
+  `make debug`/`release` then replace `bin/linux/<profile>/` with the
+  output of `cmake --install`, which is only the distributable library. Its
+  headers and `libinkerface.a` are merged by `ar -M`
+  (`tools/merge_archives.cmake`) from `inkerface_platform`, `freeink_ui`
+  and `host_filesystems`, so FreeInk is not a separate library to the
+  consumer. Next to them go `libinkerface_main.a` (the host `main()`),
+  a relocatable `inkerface.pc` listing the configured system libraries,
+  and `inkerface_storage`. The demo program, the tests and sanitizer
+  builds are never staged.
+- **X4 distribution.** `make x4` builds the demo firmware in
+  `build/pio/x4/`, then `tools/stage_x4.py` replaces `bin/x4/`. It merges
+  every library archive of that build with the toolchain's
+  `riscv32-esp-elf-ar -M`, except the Arduino-ESP32 framework's own
+  libraries (any directory under the framework's `libraries/`, plus
+  `FrameworkArduino`), which a consumer's framework provides. Those it
+  lists as `lib_deps` in the staged `platformio.ini`, together with the
+  platform, board and flags the archive was compiled with. The archive
+  holds `setup()`/`loop()`, so a consumer supplies only `program()`.
+- **Packages and the tool image.** Third-party packages live in
+  `packages/`: FreeInk, the native filesystems (and their archives in
+  `packages/.downloads/`), and PlatformIO's `core_dir` and `libdeps_dir`.
+  Downloads are staged in `packages/` and renamed into place only when
+  complete. `make clean` removes `build/` and `bin/` only. PlatformIO,
+  clang-format and Pillow run in the image from `docker/Dockerfile`
+  (Ubuntu 26.04, GCC 15, PlatformIO 6.2.0), tagged with the Dockerfile's
+  hash and run as the calling user with the project mounted at its own
+  path. Inside it, `INKERFACE_IN_DOCKER=1` makes the Makefile call the
+  tools directly, which is how `make ci` runs the whole build in the
+  image. The host build itself stays native.
+- **Pipeline.** `.github/workflows/build.yml` runs `make ci` for a
+  `vX.Y.Z` tag, which also publishes the archives of `bin/` as a GitHub
+  release, and on manual dispatch, which only uploads them as an
+  artifact. `packages/` is cached between runs, keyed on the download
+  pins and `platformio.ini`.
 - **Linking on the X4.** Libraries are linked from archives
   (`lib_archive = yes`), so unused storage and networking cost no flash;
   pioarduino disables archives unless the option is set explicitly. The
@@ -269,5 +304,11 @@ device frames for the same panel geometry.
   that toolchain. This is a documented deviation from the
   no-extensions rule and applies to the device build only.
 - FreeInk is pinned by `tools/download_sdk.py` (tested: `e637713`).
-  Make downloads it if absent. Clean preserves it; purge removes the
-  managed cache. Download staging directories are ignored and cleaned up.
+  Make downloads it into `packages/` if absent. Clean preserves it;
+  purge removes `packages/` and the tool image, never an external
+  `FREEINK` checkout. Download staging directories are ignored and
+  cleaned up.
+- Tool image: Ubuntu 26.04 with its G++ 15 and CMake, PlatformIO 6.2.0
+  in a virtual environment, clang-format, Pillow and the Noto fonts
+  (`docker/Dockerfile`). The device toolchain itself is a PlatformIO
+  package in `packages/platformio/`, not part of the image.

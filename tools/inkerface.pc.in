@@ -1,0 +1,15 @@
+# pkg-config file for a program built against a staged inkerface
+# (bin/linux/<profile>/). Relocatable: paths are relative to this file.
+#
+# MIT License (see: LICENSE)
+# Copyright (C) 2026 Tomaz Stih
+
+prefix=${pcfiledir}/../..
+includedir=${prefix}/include
+libdir=${prefix}/lib
+
+Name: inkerface
+Description: e-ink platform layer over the FreeInk SDK (host build)
+Version: @INKERFACE_VERSION@
+Cflags: -I${includedir}
+Libs: -L${libdir} -linkerface_main -linkerface @inkerface_pc_libs@

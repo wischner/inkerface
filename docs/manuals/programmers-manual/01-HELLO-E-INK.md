@@ -5,15 +5,18 @@ look at the result, first as an image file and then in a live window.
 
 ## Get the project and build it once
 
-Clone the project, change into its folder, and run `make`:
+Clone the project, change into its folder, and build the desktop
+version:
 
 ```sh
-make
+make debug
 ```
 
-The first `make` downloads the FreeInk SDK into `lib/freeink-sdk`, which
-takes a minute. Later builds reuse it. When `make` finishes, the program
-is in `bin/debug/inkerface`. Check that it works:
+The first build downloads the FreeInk SDK into `packages/freeink-sdk`,
+which takes a minute. Later builds reuse it. When it finishes, the
+program is in `build/debug/inkerface`. (A plain `make` builds every
+platform, the X4 included. That needs Docker and a much larger first
+download, so leave it for chapter 8.) Check that it works:
 
 ```sh
 make preview
@@ -109,13 +112,13 @@ make run
 `make run` builds the program and runs it with the environment variable
 `INKERFACE_FRAME_PATH` set. Each time the program presents a frame, the
 desktop build writes that frame to the named file as a PBM image. The
-output is `bin/debug/hello_world.pbm`. Open it with any image viewer
+output is `build/debug/hello_world.pbm`. Open it with any image viewer
 (for example `eog`, `feh` or GIMP).
 
 You can also run the program yourself:
 
 ```sh
-INKERFACE_FRAME_PATH=hello.pbm bin/debug/inkerface
+INKERFACE_FRAME_PATH=hello.pbm build/debug/inkerface
 ```
 
 ## Keep the window open

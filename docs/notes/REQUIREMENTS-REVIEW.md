@@ -394,3 +394,43 @@ an X4.
 
 Not verified: the hold and the wake on X4 hardware at the time of
 writing.
+
+## Build, packages and releases (2026-11-26)
+
+Request: `make` builds everything into `bin/`; third-party packages live
+in `packages/`, which only `make purge` removes; special tools run in a
+Docker image; `make help` lists the platforms; a pipeline runs for a
+`vX.Y.Z` tag (releasing `bin/`) and on demand without one.
+
+| Requirement | Result |
+| --- | --- |
+| `make` builds everything into `bin/` | `all` = packages, `linux` (debug, release) and `x4`: `bin/linux/debug/`, `bin/linux/release/`, `bin/x4/`. Only distributable libraries are staged; programs, tests and firmware stay in `build/`. |
+| Packages in `packages/` | FreeInk SDK, littlefs/FatFs, PlatformIO `core_dir` (platform, toolchain, framework) and `libdeps_dir` (SdFat). Downloaded when missing. |
+| `clean` keeps packages, `purge` removes them | `clean` removes `build/`, `bin/`, `.pio/`; `purge` also `packages/` and the tool image. |
+| Special tools in Docker | `docker/Dockerfile`: PlatformIO, clang-format, Pillow, Noto fonts. Used by `x4*`, `fonts`, `format`; the host build stays native. |
+| `make help` lists platforms | `linux` and `x4`, their outputs, every target and variable. |
+| Pipeline on a tag and without one | `.github/workflows/build.yml`: `push` of tags `v[0-9]+.[0-9]+.[0-9]+` and `workflow_dispatch`. |
+| Release from `bin/` on a tag | `make archives` packs each `bin/` directory; the tag run publishes them with `gh release create`. Untagged runs upload them as an artifact. |
+| X4 library | `bin/x4/`: headers, one ESP32-C3 `libinkerface.a` (inkerface, FreeInk libraries, SdFat), `partitions-x4.csv`, consumer `platformio.ini`. |
+
+Verification performed:
+
+- Tool image built (Ubuntu 26.04, PlatformIO 6.2.0); `make x4-packages`
+  installed the pioarduino platform, toolchain and framework into
+  `packages/platformio/` (2.4 GB) and SdFat into `packages/pio-libdeps/`.
+- `make` from an empty `bin/` built and staged all three directories.
+  `make clean` left `packages/` intact; `make purge` was checked with
+  `make -n` only.
+- A separate PlatformIO project using only `bin/x4/` and its
+  `platformio.ini`, with a `program()` that uses display, input,
+  storage, Wi-Fi, HTTP, UDP, a listener, scan and `power_off()`, built
+  and linked: 1,158,611 bytes flash, 39,628 bytes static RAM.
+- A host program built outside the repository with only
+  `bin/linux/debug/` and pkg-config linked and rendered text.
+- `make ci` (everything in the tool image): all platforms, debug and
+  sanitize test runs (4/4 each), three archives. The privileged-port
+  check now runs only where low ports are reserved; Docker opens them.
+
+Not verified: the pipeline on GitHub itself (it has not been pushed),
+`x4-upload`, `x4-uploadfs` and `x4-monitor` (no device attached), and
+the consumer firmware on X4 hardware.

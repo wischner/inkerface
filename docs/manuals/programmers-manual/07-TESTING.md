@@ -15,7 +15,7 @@ make test
 
 | Test | Checks |
 | --- | --- |
-| `unit` | the program `bin/debug/inkerface_tests`, built from `tests/unit/*.cpp` |
+| `unit` | the program `build/debug/inkerface_tests`, built from `tests/unit/*.cpp` |
 | `isolation` | that no FreeInk or Arduino header is used in `include/`, `src/` or `tests/` |
 | `hello_world_frame` | that the real program starts, presents and writes a frame |
 
@@ -253,7 +253,7 @@ Look at the picture. Run the same sequence by hand and write the frame
 to a file:
 
 ```sh
-printf 'confirm\nconfirm\n' | INKERFACE_FRAME_PATH=debug.pbm bin/debug/inkerface
+printf 'confirm\nconfirm\n' | INKERFACE_FRAME_PATH=debug.pbm build/debug/inkerface
 ```
 
 Then open `debug.pbm`. To step through the code instead, choose

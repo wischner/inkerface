@@ -545,8 +545,8 @@ make storage-images
 export INKERFACE_STORAGE_ROOT="$PWD/build/storage"
 printf 'my-wifi\nsecret\n' > build/wifi.txt
 printf 'http://127.0.0.1:8000/messages.txt\n5\n' > build/pager.txt
-bin/debug/inkerface_storage put internal build/wifi.txt wifi.txt
-bin/debug/inkerface_storage put internal build/pager.txt pager.txt
+bin/linux/debug/bin/inkerface_storage put internal build/wifi.txt wifi.txt
+bin/linux/debug/bin/inkerface_storage put internal build/pager.txt pager.txt
 make preview
 ```
 
