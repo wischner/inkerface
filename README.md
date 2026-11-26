@@ -9,8 +9,11 @@ sees.
 
 - **Display and drawing:** shapes, dithered grays, bitmaps, text in boxes
   or at points, four built-in fonts and loadable fonts.
-- **Input:** semantic actions (`confirm`, `back`, focus, paging) from the
-  X4 buttons, the preview window's keyboard or a script, with timed waits.
+- **Input:** semantic actions (`confirm`, `back`, focus, paging, a held
+  power button) from the X4 buttons, the preview window's keyboard or a
+  script, with timed waits.
+- **Power:** switch the device off into deep sleep, waking on the power
+  button.
 - **Screens:** a screen stack with navigation, owned by the application.
 - **Storage:** files and directories on internal flash (LittleFS) and the
   SD card.
@@ -126,7 +129,7 @@ The host emulates the X4 panel (800x480 native, 480x800 portrait) and
 renders with the same FreeInk code as the device. Set
 `INKERFACE_FRAME_PATH` to have each presented frame written as a PBM
 image. Input is read from stdin, one action per line: `confirm`, `back`,
-`next`, `prev`, `page_next`, `page_prev`. End of input exits.
+`next`, `prev`, `page_next`, `page_prev`, `power`. End of input exits.
 
 ```sh
 printf 'confirm\nback\n' | INKERFACE_FRAME_PATH=frame.pbm bin/debug/inkerface

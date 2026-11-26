@@ -17,6 +17,7 @@ struct input_snapshot {
     bool focus_prev;  // move the highlight up
     bool page_next;   // turn to the next page
     bool page_prev;   // turn to the previous page
+    bool power;       // the power button was held: switch off
     bool any() const; // true if any of the above is set
 };
 ```
@@ -31,9 +32,35 @@ Each target maps its own hardware to these actions:
 | `focus_prev` | Up | Up | `prev` |
 | `page_next` | Right | Right, Page Down | `page_next` |
 | `page_prev` | Left | Left, Page Up | `page_prev` |
+| `power` | Power, held about a second | P | `power` |
 
 Because screens only see actions, the same code works with buttons, a
 keyboard, or a test script.
+
+## Switching off
+
+`power` is reported once when the power button has been held for about
+a second, so a knocked button does not count. What it means is up to the
+program, but on a reader it almost always means "switch off", which is
+`power_off()` from `<inkerface/power.h>`:
+
+```cpp
+const inkerface::input_snapshot in = buttons.poll();
+if (in.power) {
+    paint_off_screen(screen);           // the panel keeps it while off
+    static_cast<void>(screen.present(inkerface::refresh_mode::full));
+    inkerface::power_off(screen);       // returns only on the desktop
+    return EXIT_SUCCESS;
+}
+```
+
+- **Device:** the panel and the chip go to deep sleep, drawing almost
+  nothing, and the last frame stays on the e-paper. The next press of
+  the power button wakes the device, and waking is a fresh boot:
+  `program()` starts again from the beginning. Nothing is shut down in
+  an orderly way, so close files and say goodbye to servers first.
+- **Desktop:** there is nothing to switch off. `power_off()` returns at
+  once, and the program should end, as it would on the device.
 
 ## How `poll()` behaves
 
@@ -219,6 +246,8 @@ automated tests.
 
 - `poll()` returns semantic actions, and each target maps its own
   hardware to them.
+- `power` is a held power button; `power_off()` switches the device off
+  until the next press, which boots it afresh.
 - The main loop is: poll, update the state, redraw everything, present.
 - Use `full` for new pages and `fast` for small changes, with an
   occasional `full` to clear ghosts.

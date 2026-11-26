@@ -376,3 +376,21 @@ Verification performed:
 Not verified: any of it on X4 hardware (soft AP, scan, broadcast through
 lwIP, accepting connections); the sanitize build (ASan cannot start on
 this host because of a system-wide preload, even for `/bin/true`).
+
+## Power off (2026-11-26)
+
+Request, from the tabcast reader: a reader must be switched off with its
+power button and back on with the next press, as stock X4 firmware does.
+
+| Requirement | Result |
+| --- | --- |
+| Power button | `input_snapshot::power`: FreeInk's BTN_POWER held 1 s, once per hold. Preview key P, script line `power`. |
+| Switch off | `power_off(display&)` in `power.h`: panel deep sleep, rails down, wait for release, wake on the power button, deep sleep; a fresh boot on wake. Returns on the host. |
+
+Verification performed: 4 new unit checks (256 in total) for the script
+action, `any()`, and the host `power_off()`; the X4 builds with FreeInk's
+PowerManager linked; the tabcast reader, which uses both, was flashed to
+an X4.
+
+Not verified: the hold and the wake on X4 hardware at the time of
+writing.

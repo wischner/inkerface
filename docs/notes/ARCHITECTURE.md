@@ -66,7 +66,15 @@ device frames for the same panel geometry.
   calls it from Arduino `setup()` and idles in `loop()` if it returns.
 - **Semantic input.** Screens see only `input_snapshot` actions. The X4
   mapping follows the FreeInk convention: UP/DOWN focus, LEFT/RIGHT page,
-  CONFIRM/BACK act.
+  CONFIRM/BACK act. `power` is FreeInk's BTN_POWER held for a second,
+  reported once per hold; the preview maps it to P and scripts to `power`.
+- **Power off.** `power_off()` (`power.h`) is implemented beside each
+  display backend, because putting the panel to sleep is the display's
+  business: `display` befriends it. On the X4 it runs FreeInk's sequence:
+  the panel driver's `deepSleep()`, `PowerManager::powerDownRailsForSleep()`
+  and `deepSleepUntilPowerButton()`, which waits for the release, arms the
+  board profile's power pin as the wake source and never returns; waking
+  is a reset. On the host it returns and the program ends.
 - **Desktop preview.** `input(display&)` borrows the display. When
   `INKERFACE_PREVIEW=1`, the host input backend owns an X11 window, copies
   logical framebuffer pixels into it, and translates keyboard events.
