@@ -16,11 +16,13 @@ lib/inkerface/src/   platform layer (the only code that includes FreeInk)
                      font loader, built-in fonts in fonts/ (shared)
    common/           storage, file, directory over platform primitives (shared)
    posix/            POSIX file primitives (X4 internal flash)
-   net/              tcp_socket, http_client over FreeInk SecureNet (shared)
+   net/              tcp_socket, http_client over FreeInk SecureNet;
+                     tcp_listener, udp_socket over BSD sockets (shared)
    host/             in-memory X4 panel, stdin input, image volumes, main(),
                      OpenSSL SecureClient, arduino/ API stand-in
    x4/               FreeInkDisplay, InputManager, LittleFS, SDCardManager,
-                     Wi-Fi, Arduino setup()/loop()
+                     Wi-Fi station and soft AP, PowerManager deep sleep,
+                     Arduino setup()/loop()
    │  links
    ▼
 lib/freeink-sdk/     ignored SDK download cache, compiled unmodified
@@ -31,9 +33,11 @@ lib/freeink-sdk/     ignored SDK download cache, compiled unmodified
 - Headers under `include/` forward-declare backend classes
   (`detail::canvas`, `detail::display_backend`, `detail::input_backend`,
   `detail::storage_backend`, `detail::file_backend`,
-  `detail::directory_backend`) and hold them by pointer or
-  `std::unique_ptr`. FreeInk, Arduino, SdFat and LittleFS types never
-  appear in a public declaration.
+  `detail::directory_backend`, `detail::socket_backend`,
+  `detail::http_backend`) and hold them by pointer or `std::unique_ptr`.
+  `tcp_listener` and `udp_socket` hold only a plain descriptor `int`.
+  FreeInk, Arduino, SdFat and LittleFS types never appear in a public
+  declaration.
 - In CMake, `freeink_ui` is linked `PRIVATE` into `inkerface_platform`,
   so FreeInk include paths do not reach the application or the tests.
 - The `isolation` test (`tests/isolation/check_isolation.cmake`) fails
@@ -119,8 +123,9 @@ device frames for the same panel geometry.
   `WiFiClient` over non-blocking POSIX sockets, `base64`), and
   `host/secure_client.cpp` defines FreeInk's `SecureClient` members with
   OpenSSL, the same substitution FreeInk uses in its own host tests. Only
-  `network` (the link) differs per platform: Arduino-ESP32 Wi-Fi station
-  on the X4, an always-available link on the host.
+  `network` (the link) and the broadcast destinations differ per
+  platform: Arduino-ESP32 Wi-Fi station and soft AP on the X4, an
+  always-available link with an emulated access point on the host.
   - Errors are `net_error` values. Sockets keep a sticky error like
     files; a read timeout is not an error. HTTP returns a response whose
     `error` covers transport failures, while the status covers HTTP.
@@ -206,6 +211,11 @@ device frames for the same panel geometry.
 | No storage root on the host, no card, or mount failure | `storage_error::unavailable`; the card mount is retried on later calls |
 | Network operation fails | A `net_error` value; sockets keep the first failure and close; HTTP returns it in `http_response::error` |
 | TLS requested without TLS support (X4 default, host `TLS=OFF`) | `net_error::tls_unavailable` before any connection is made |
+| Listener or UDP port taken, or privileged on the host | `net_error::bind`; the listener or socket is closed |
+| No connection or datagram waiting | `accept()` returns a closed socket with `error()` none; `receive()` returns 0 |
+| UDP send fails | `send_to()`/`broadcast()` return false; the socket stays open |
+| Access point cannot start (bad name or password, radio failure) | `start_access_point()` returns `std::nullopt`; not hosting |
+| `power_off()` on the host | Returns at once; the program is expected to end |
 
 ## Trust boundaries
 
@@ -229,7 +239,15 @@ device frames for the same panel geometry.
   testing-only. On the X4 without a CA certificate, verification fails
   closed. Redirects never downgrade https to http (FreeInk default).
 - Wi-Fi credentials are passed to the ESP32 station only; persistence is
-  turned off so they are not written to NVS. They are never logged.
+  turned off so they are not written to NVS. They are never logged. The
+  same holds for the access point's password, which must be empty (open
+  network) or 8 to 63 characters for WPA2.
+- Accepted connections and received datagrams come from anyone on the
+  joined network or the access point. Accepted connections are plain
+  TCP, with no TLS, so the program must validate what they send. A
+  datagram longer than the receive buffer is cut to the buffer, never
+  written past it. An address given to `send_to()` that does not parse
+  as IPv4 makes it return false without sending.
 - The host ignores SIGPIPE once a `network` exists, so a peer closing
   during an OpenSSL write is reported as an error instead of ending the
   process.

@@ -33,8 +33,8 @@ write an application step by step, read the
 
 ```text
 include/inkerface/   public platform API: geometry, color, font, surface,
-                     display, input, storage, file, directory, network,
-                     http, socket, program()
+                     display, input, power, storage, file, directory,
+                     network, http, socket, program()
 lib/inkerface/src/   platform layer, the only code that includes FreeInk
   freeink/           surface implemented on FreeInkUI's DisplayTarget;
                      font slots, built-in fonts (fonts/) and the font loader
@@ -48,7 +48,8 @@ lib/inkerface/src/   platform layer, the only code that includes FreeInk
     arduino/         minimal Arduino API (POSIX sockets) for FreeInk's
                      network code on the host
   x4/                device backend: FreeInkDisplay, InputManager, LittleFS,
-                     SDCardManager, Wi-Fi, setup()
+                     SDCardManager, Wi-Fi station and soft AP,
+                     PowerManager deep sleep, setup()
 lib/freeink-sdk/     FreeInk SDK (ignored download cache, unmodified)
 lib/host-filesystems/ native-only littlefs/FatFs source cache (ignored)
 src/app/             application class, main loop, program()

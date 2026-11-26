@@ -73,6 +73,16 @@ return. If it ever does, or an exception escapes it, the message is
 printed to the serial console and the device idles. The last image
 stays on the panel.
 
+The program ends only when it switches the device off with
+`power_off()` (chapters 4 and 5), usually after the power button is held
+for about a second. The panel and the chip go into deep sleep, and the
+last frame stays on the e-paper. The next press of the power button
+wakes the chip, and waking is a reset. You get the same sequence as
+above, from `setup()` and a freshly started `program()`. No variables
+survive, and the program paints its first page as at any other start.
+Anything the program must remember across a power-off goes to storage
+first (chapter 9).
+
 ## Differences from the desktop
 
 | | Desktop | X4 |
@@ -80,7 +90,8 @@ stays on the panel.
 | Pixels | identical | identical |
 | Refresh | instant | `full` flashes and takes noticeably longer; `fast` is quicker but leaves ghosts |
 | Input | keyboard or script | physical buttons, polled about 100 times a second |
-| End of program | window closed or input ended | never; power off |
+| End of program | window closed or input ended | `power_off()`; waking boots afresh |
+| Power button | P in the preview, `power` in a script | held about a second |
 | Memory | gigabytes | about 400 KB RAM in total |
 | Output | PBM files on request | the panel only |
 
@@ -192,8 +203,9 @@ Most bugs are found in steps 1 and 2, in seconds and without hardware.
 
 - `make x4` builds and `make x4-upload` flashes. Your `src/` needs no
   changes.
-- On the device, `program()` runs forever and the panel keeps the last
-  image.
+- On the device, `program()` runs until it calls `power_off()`, and the
+  panel keeps the last image. The power button wakes the device into a
+  fresh boot.
 - Design for slow refreshes, ghosting and small memory.
 - Standard C++ threads work: each gets 8 KB of stack and takes turns with
   the UI on the single core.

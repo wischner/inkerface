@@ -471,6 +471,46 @@ spinning, and bounds how late socket data is noticed. When the server
 closes the connection, `read()` records `net_error::closed`, the socket
 tests false, and the loop ends.
 
+The server side polls the same way. `tcp_listener::accept()` and
+`udp_socket::receive()` wait 0 ms by default: `accept()` returns a
+closed socket and `receive()` returns 0 when nothing has arrived. A
+device that answers discovery broadcasts and takes connections, all
+while watching the buttons, still needs only one loop:
+
+```cpp
+// Answer "who?" broadcasts with "here", take connections on port 8080,
+// and hand each one to on_peer. Back ends the loop.
+void serve_lan(inkerface::network &link,
+               inkerface::input &buttons,
+               const std::function<void(inkerface::tcp_socket &)> &on_peer) {
+    using std::chrono::milliseconds;
+    inkerface::udp_socket finder(link, 7001);
+    inkerface::tcp_listener server(link, 8080);
+    if (!finder || !server) {
+        return; // not connected or hosting, or a port is taken (bind)
+    }
+    std::array<std::byte, 64> buffer{};
+    while (!buttons.closed()) {
+        if (buttons.poll_for(milliseconds(50)).back) {
+            return;
+        }
+        inkerface::datagram_source from;
+        if (finder.receive(buffer, from) > 0) {
+            static_cast<void>(finder.send_to(
+                from.address, from.port,
+                std::as_bytes(std::span("here", 4))));
+        }
+        if (inkerface::tcp_socket peer = server.accept()) {
+            on_peer(peer);
+        }
+    }
+}
+```
+
+`on_peer` blocks the loop while it runs, so keep each exchange short, or
+read the peer with `read(buffer, 0ms)` across several passes as `serve()`
+does above.
+
 ## Other approaches
 
 - **Coroutines (C++20).** A coroutine is a function that can suspend
@@ -516,8 +556,9 @@ UI itself is busy, as in the pager.
   their state in members and use explicit lists instead of recursion.
 - Check input from callbacks (body sinks, cancel checks, line handlers),
   rate-limited.
-- Poll sources such as sockets with `available()`, and read only what is
-  there.
+- Poll sources such as sockets with `available()` or `read(buffer, 0ms)`,
+  and read only what is there. `accept()` and `receive()` never wait by
+  default, so a listener and a UDP socket share the same loop.
 - Ration e-paper refreshes. They are the longest blocking step on the
   device.
 

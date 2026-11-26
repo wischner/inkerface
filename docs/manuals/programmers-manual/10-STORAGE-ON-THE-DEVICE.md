@@ -74,6 +74,11 @@ folder into the partition. This replaces everything stored there.
   expensive storage step, and a program that never uses a volume never
   powers it up. The X4 has no separate switch for the card's power; it
   goes off only when the whole device powers off.
+- **Close files before `power_off()`.** Switching off (chapter 4) is a
+  deep sleep with no orderly shutdown, and waking is a fresh boot. A
+  file still open for writing at that moment is left as if the power
+  had been cut. LittleFS keeps the last completed state, and FAT can
+  lose the file. Save, close, then switch off.
 - **Read and write in blocks of 512 bytes or more.** Every call goes
   straight to the filesystem: there is no buffer in between, which
   saves RAM, but small calls are paid for one by one.

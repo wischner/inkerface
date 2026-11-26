@@ -258,6 +258,50 @@ Build it and run `make preview`. The counter behaves as before, but it is
 now one screen among potentially many. From here on, `program()` stays
 exactly like this. All new features are new screens.
 
+## The power button
+
+In chapter 4 your own loop switched the device off when `power` arrived.
+Now the loop is in `application::run()`, and a screen can't do it: it
+never sees the `display`. Switching off belongs to the whole
+application, so handle `power` in `run()`, before the snapshot reaches
+the screen. In `src/app/app.cpp`:
+
+```cpp
+#include <inkerface/power.h>
+
+// ...
+
+int application::run() {
+    paint();
+    if (!display_->present(inkerface::refresh_mode::full)) {
+        return EXIT_FAILURE;
+    }
+    while (!input_->closed()) {
+        const inkerface::input_snapshot in = input_->poll();
+        if (in.power) {
+            // The panel keeps the last frame while the device is off;
+            // paint and present a goodbye page here if you want one.
+            inkerface::power_off(*display_);
+            return EXIT_SUCCESS; // reached only on the desktop
+        }
+        if (!in.any() || !dispatch(in)) {
+            continue;
+        }
+        paint();
+        if (!display_->present(inkerface::refresh_mode::fast)) {
+            return EXIT_FAILURE;
+        }
+    }
+    return EXIT_SUCCESS;
+}
+```
+
+The project as it ships doesn't do this, so `power` reaches the top
+screen's `handle()`, which ignores it. Add the check once you want the
+power button to work. On the device, `power_off()` doesn't return.
+Waking is a fresh boot that runs `program()` from the start, so save
+anything the next start needs before you call it (chapter 9).
+
 ## Rules for good screens
 
 - **`paint()` draws everything.** Start with `clear()`, and draw only from
@@ -275,6 +319,8 @@ exactly like this. All new features are new screens.
   concept checks it.
 - `handle()` returns `stay`, `repaint`, `open` or `close`.
 - The application owns the loop, the screen stack, and the refreshes.
+  The power button is the application's business too: handle `power`
+  in `run()`, not in a screen.
 - To register a screen, give it an id, add it to `any_screen`, add a case
   to `make_screen`, and add the file to `CMakeLists.txt`.
 

@@ -11,7 +11,7 @@ up from a phone.
 
 | Header | Class | Job |
 | --- | --- | --- |
-| `<inkerface/network.h>` | `network` | the link: joins Wi-Fi on the X4, switches the radio off |
+| `<inkerface/network.h>` | `network` | the link: joins Wi-Fi on the X4, scans, hosts an access point, switches the radio off |
 | `<inkerface/http.h>` | `http_client` | HTTP and HTTPS requests to web APIs |
 | `<inkerface/socket.h>` | `tcp_socket` | a TCP connection, optionally with TLS, for other protocols |
 | `<inkerface/socket.h>` | `tcp_listener` | accepts TCP connections from other devices |
@@ -113,6 +113,7 @@ A **404 is not a network error**. `error` is `none` and `status` says
 | `cancelled` | your cancel check or body sink stopped the transfer |
 | `too_large` | the body exceeded `max_body_bytes` |
 | `incomplete` | the body ended early |
+| `bind` | a listener or UDP socket could not take its local port: it is in use, or not permitted (below 1024 on the desktop) |
 
 ### Streaming large bodies
 
@@ -472,7 +473,8 @@ folder (chapter 10). Keep that file out of version control.
 | --- | --- |
 | Flash | networking is linked only into programs that use it |
 | RAM while connected | the Wi-Fi stack's buffers, plus a TLS session if TLS is on (chapter 8 has the budget) |
-| Power | the radio dominates; `disconnect()` as soon as you are done |
+| Power | the radio dominates; `disconnect()` as soon as you are done, and `stop_access_point()` once setup is over |
+| Scan | blocks for a few seconds while the radio listens on every channel |
 
 Requests and socket reads block the thread that makes them. Either show a
 "Loading..." page first (paint and present it, then send the request), or

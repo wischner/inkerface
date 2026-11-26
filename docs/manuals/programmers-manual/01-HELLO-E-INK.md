@@ -192,7 +192,8 @@ line (see chapter 4). On the device it reads the physical buttons.
 is marked `[[nodiscard]]`, so ignoring it on purpose needs
 `static_cast<void>(...)`. `closed()` becomes true when the window closes
 or the terminal input ends. On the device it is never true, so the
-program runs until the power is switched off.
+program runs until it switches the device off itself, which chapter 4
+shows.
 
 ## Summary
 
