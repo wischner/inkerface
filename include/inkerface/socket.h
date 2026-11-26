@@ -1,7 +1,9 @@
 //
 // Declares tcp_socket: a TCP connection, optionally secured with TLS, for
 // protocols other than HTTP. Reads wait at most the socket's timeout, so
-// a program never blocks indefinitely.
+// a program never blocks indefinitely. Also tcp_listener, which accepts
+// connections from other devices, and udp_socket, for datagrams and for
+// finding other devices on the local network by broadcast.
 //
 // MIT License (see: LICENSE)
 // Copyright (C) 2026 Tomaz Stih
@@ -13,6 +15,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <string_view>
 
 #include <inkerface/network.h>
@@ -42,6 +45,8 @@ struct socket_options {
 //     failure; it returns 0 and the socket stays open.
 //     Thread-safety: not thread-safe.
 class tcp_socket {
+    friend class tcp_listener;
+
 public:
     //
     // Connect to host:port.
@@ -115,9 +120,177 @@ public:
     void close();
 
 private:
+    // Adopt an accepted connection, or make a closed socket when backend
+    // is null.
+    tcp_socket(detail::socket_handle backend,
+               std::chrono::milliseconds timeout);
+
     detail::socket_handle backend_;
     net_error error_ = net_error::none;
     std::chrono::milliseconds timeout_{0};
+};
+
+// Accepts TCP connections from other devices.
+//
+// Notes:
+//     Listens on every interface: the joined network, or the device's
+//     own network while it is an access point. Accepted connections are
+//     plain TCP; TLS is client-side only.
+//     Failures are sticky, as for tcp_socket.
+//     Thread-safety: not thread-safe.
+class tcp_listener {
+public:
+    //
+    // Listen on a port.
+    //
+    // Parameters:
+    //     link    - Network; must be connected or hosting, and outlive
+    //               the listener.
+    //     port    - Port, 1 to 65535.
+    //     timeout - Read timeout given to every accepted socket.
+    //
+    // Notes:
+    //     On failure the listener is closed and error() says why:
+    //     net_error::bind when the port is taken or not permitted.
+    //
+    tcp_listener(network &link,
+                 std::uint16_t port,
+                 std::chrono::milliseconds timeout = std::chrono::seconds(10));
+    ~tcp_listener();
+
+    tcp_listener(const tcp_listener &) = delete;
+    tcp_listener &operator=(const tcp_listener &) = delete;
+    // A moved-from listener is closed.
+    tcp_listener(tcp_listener &&other) noexcept;
+    tcp_listener &operator=(tcp_listener &&other) noexcept;
+
+    // Return true while listening.
+    [[nodiscard]] bool is_open() const;
+    // Return the first failure, or net_error::none.
+    [[nodiscard]] net_error error() const;
+    // Return true when open and nothing has failed.
+    explicit operator bool() const;
+
+    //
+    // Take one waiting connection, waiting at most wait for it.
+    //
+    // Returns:
+    //     The connection, or a closed socket (is_open() false, error()
+    //     none) when none arrived in time. With wait 0 it never waits,
+    //     so a main loop can poll it.
+    //
+    [[nodiscard]] tcp_socket accept(std::chrono::milliseconds wait = {});
+
+    // Stop listening. Accepted sockets stay open. Closing twice is
+    // harmless.
+    void close();
+
+private:
+    int descriptor_ = -1;
+    net_error error_ = net_error::none;
+    std::chrono::milliseconds timeout_{0};
+};
+
+// Where a datagram came from.
+struct datagram_source {
+    // Sender's IPv4 address, such as "192.168.4.2".
+    std::string address{};
+    std::uint16_t port = 0;
+};
+
+// Sends and receives UDP datagrams.
+//
+// Notes:
+//     Each send is one datagram and each receive returns one. Datagrams
+//     can be lost or arrive out of order; that is the protocol's nature.
+//     A failed send is reported by its return value and leaves the socket
+//     open, because the next datagram may well go through.
+//     Thread-safety: not thread-safe.
+class udp_socket {
+public:
+    //
+    // Open a socket on a local port.
+    //
+    // Parameters:
+    //     link - Network; must be connected or hosting, and outlive the
+    //            socket.
+    //     port - Local port to receive on; 0 lets the system choose,
+    //            which suits a socket that only asks and hears replies.
+    //
+    // Notes:
+    //     On failure the socket is closed and error() says why.
+    //
+    explicit udp_socket(network &link, std::uint16_t port = 0);
+    ~udp_socket();
+
+    udp_socket(const udp_socket &) = delete;
+    udp_socket &operator=(const udp_socket &) = delete;
+    // A moved-from socket is closed.
+    udp_socket(udp_socket &&other) noexcept;
+    udp_socket &operator=(udp_socket &&other) noexcept;
+
+    // Return true while the socket is open.
+    [[nodiscard]] bool is_open() const;
+    // Return why opening failed, or net_error::none.
+    [[nodiscard]] net_error error() const;
+    // Return true when open and nothing has failed.
+    explicit operator bool() const;
+
+    // Return the local port, which is the chosen one when 0 was given.
+    [[nodiscard]] std::uint16_t port() const;
+
+    //
+    // Send one datagram to one device.
+    //
+    // Parameters:
+    //     address - IPv4 address, such as "192.168.4.2".
+    //     port    - Port, 1 to 65535.
+    //     data    - The datagram, at most about 1400 bytes to be safe.
+    //
+    // Returns:
+    //     True when it was handed to the network.
+    //
+    [[nodiscard]] bool send_to(std::string_view address,
+                               std::uint16_t port,
+                               std::span<const std::byte> data);
+
+    //
+    // Send one datagram to every device on the local network.
+    //
+    // Returns:
+    //     True when it went out on at least one network.
+    //
+    // Notes:
+    //     The platform picks the destinations: the broadcast address of
+    //     the joined network or of the access point on the device; every
+    //     interface's broadcast address and loopback on the host, so
+    //     programs on the same machine hear it too.
+    //
+    [[nodiscard]] bool broadcast(std::uint16_t port,
+                                 std::span<const std::byte> data);
+
+    //
+    // Receive one datagram, waiting at most wait for it.
+    //
+    // Parameters:
+    //     out  - Buffer; a longer datagram is cut to its size.
+    //     from - Receives the sender.
+    //     wait - Longest wait; 0 never waits, for polling from a loop.
+    //
+    // Returns:
+    //     Bytes received, or 0 when nothing arrived in time.
+    //
+    [[nodiscard]] std::size_t receive(std::span<std::byte> out,
+                                      datagram_source &from,
+                                      std::chrono::milliseconds wait = {});
+
+    // Close the socket. Closing twice is harmless.
+    void close();
+
+private:
+    network *link_ = nullptr;
+    int descriptor_ = -1;
+    net_error error_ = net_error::none;
 };
 
 } // namespace inkerface

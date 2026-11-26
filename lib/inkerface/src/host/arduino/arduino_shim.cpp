@@ -113,6 +113,16 @@ String base64::encode(const char *text) {
     return String(std::move(output));
 }
 
+WiFiClient::WiFiClient(int descriptor)
+    : descriptor_(descriptor) {
+    if (descriptor_ >= 0) {
+        const int flags = ::fcntl(descriptor_, F_GETFL, 0);
+        if (flags >= 0) {
+            static_cast<void>(::fcntl(descriptor_, F_SETFL, flags | O_NONBLOCK));
+        }
+    }
+}
+
 WiFiClient::~WiFiClient() {
     stop();
 }

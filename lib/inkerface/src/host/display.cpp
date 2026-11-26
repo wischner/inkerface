@@ -10,6 +10,7 @@
 //
 
 #include <inkerface/display.h>
+#include <inkerface/power.h>
 
 #include "../freeink/canvas.h"
 
@@ -129,6 +130,11 @@ font_error display::load_font(font face, std::span<const std::uint8_t> data) {
 
 void display::reset_font(font face) {
     backend_->drawing().reset_font(face.slot());
+}
+
+void power_off(display & /*screen*/) {
+    // A desktop has nothing to switch off. The frame already presented is
+    // what the device would leave on its panel; the program ends instead.
 }
 
 } // namespace inkerface

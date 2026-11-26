@@ -100,6 +100,9 @@ add_library(inkerface_platform STATIC
     lib/inkerface/src/host/disk_image.cpp
     lib/inkerface/src/host/image_volume.cpp
     lib/inkerface/src/net/socket.cpp
+    lib/inkerface/src/net/listener.cpp
+    lib/inkerface/src/net/udp.cpp
+    lib/inkerface/src/net/descriptor.cpp
     lib/inkerface/src/net/http.cpp
     lib/inkerface/src/host/network.cpp
     lib/inkerface/src/host/arduino/arduino_shim.cpp
@@ -158,6 +161,8 @@ if(BUILD_TESTING)
         tests/unit/test_storage.cpp
         tests/unit/test_storage_images.cpp
         tests/unit/test_network.cpp
+        tests/unit/test_network_server.cpp
+        tests/unit/test_power.cpp
         tests/unit/test_fonts.cpp)
     target_link_libraries(inkerface_tests PRIVATE inkerface_app)
     target_compile_options(inkerface_tests PRIVATE ${inkerface_warnings})

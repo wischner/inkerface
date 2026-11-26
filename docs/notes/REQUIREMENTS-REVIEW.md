@@ -344,3 +344,35 @@ built-in set, and drawing functions.
   TTF or Pillow version); the committed headers keep builds reproducible.
 
 Not verified: fonts on X4 hardware.
+
+## Serving, broadcast and access point (2026-11-26)
+
+Request, from the tabcast reader (Disciple), which runs on inkerface: a
+device with no keyboard must be set up over Wi-Fi from a phone, and must
+find its server on the LAN by itself. That needs an access point, a
+network scan, a listening socket, and UDP with broadcast.
+
+| Requirement | Result |
+| --- | --- |
+| Listening socket | `tcp_listener` in `socket.h`; `accept(wait)` hands over an ordinary `tcp_socket`, polled with a zero wait from a main loop. |
+| UDP and broadcast | `udp_socket` in `socket.h`: `send_to`, `broadcast`, `receive(out, from, wait)`, `port()`. Broadcast destinations are the one platform hook. |
+| Network scan | `network::scan()`: strongest first; Arduino-ESP32 `scanNetworks()` on the X4, a fixed emulated list on the host. |
+| Access point | `network::start_access_point()`, `stop_access_point()`, `hosting()`; soft AP on the X4, emulated on the host at the machine's own LAN address (`access_point::emulated`). |
+| Errors | `net_error::bind` for a port that is taken or not permitted. |
+
+Verification performed:
+
+- Debug build with warnings as errors; 252 unit checks pass, the new ones
+  in `tests/unit/test_network_server.cpp` over loopback: listener open,
+  zero-wait accept, port in use, privileged port, accepted socket
+  reading and writing, peer close seen by the accepted side, moved-from
+  listener; UDP send, receive, sender reported, reply, malformed address,
+  broadcast reaching a socket on the same machine; emulated scan and
+  access point, WPA2 password limits, joining ending hosting.
+- The X4 builds with the new code (`sys/poll.h`, lwIP sockets, soft AP,
+  scan). The tabcast reader, which uses all of it, links for the X4:
+  1,426,247 bytes flash and 46,756 bytes static RAM.
+
+Not verified: any of it on X4 hardware (soft AP, scan, broadcast through
+lwIP, accepting connections); the sanitize build (ASan cannot start on
+this host because of a system-wide preload, even for `/bin/true`).

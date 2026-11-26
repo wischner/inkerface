@@ -131,6 +131,8 @@ public:
             snapshot.focus_prev = key == XK_Up;
             snapshot.page_next = key == XK_Right || key == XK_Page_Down;
             snapshot.page_prev = key == XK_Left || key == XK_Page_Up;
+            // The keyboard has no power button; P stands in for holding it.
+            snapshot.power = key == XK_p;
         }
         return snapshot;
     }

@@ -1,7 +1,7 @@
 //
 // Implements the host input source. Each line read from standard input
-// names one semantic action: confirm, back, next, prev, page_next, or
-// page_prev. Blank lines are ignored, unknown words are reported and
+// names one semantic action: confirm, back, next, prev, page_next,
+// page_prev, or power. Blank lines are ignored, unknown words are reported and
 // skipped, and end of input closes the source. Lines are length-limited
 // because standard input is untrusted.
 //
@@ -58,6 +58,8 @@ std::optional<input_snapshot> parse_action(const std::string &word) {
         snapshot.page_next = true;
     } else if (word == "page_prev") {
         snapshot.page_prev = true;
+    } else if (word == "power") {
+        snapshot.power = true;
     } else {
         return std::nullopt;
     }

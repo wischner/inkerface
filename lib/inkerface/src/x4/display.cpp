@@ -12,8 +12,11 @@
 
 #include "../freeink/canvas.h"
 
+#include <inkerface/power.h>
+
 #include <BoardConfig.h>
 #include <EInkDisplay.h>
+#include <PowerManager.h>
 #include <XteinkDetect.h>
 
 #include <cstddef>
@@ -70,6 +73,11 @@ public:
         return true;
     }
 
+    // Put the panel controller into its deep sleep. The image stays.
+    void sleep() {
+        panel_.deepSleep();
+    }
+
 private:
     EInkDisplay panel_;
     std::span<std::uint8_t> pixels_;
@@ -99,6 +107,16 @@ font_error display::load_font(font face, std::span<const std::uint8_t> data) {
 
 void display::reset_font(font face) {
     backend_->drawing().reset_font(face.slot());
+}
+
+void power_off(display &screen) {
+    // FreeInk's sequence: panel first, then the board's switched rails
+    // (a no-op on the X4, whose rails are not switched), then wait for the
+    // button to be released so the hold that asked for this does not wake
+    // the chip at once, arm the power button and deep sleep.
+    screen.backend_->sleep();
+    freeink::PowerManager::powerDownRailsForSleep();
+    freeink::PowerManager::deepSleepUntilPowerButton();
 }
 
 } // namespace inkerface

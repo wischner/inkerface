@@ -20,6 +20,8 @@ int main() {
     tests::run_storage_tests(context);
     tests::run_storage_image_tests(context);
     tests::run_network_tests(context);
+    tests::run_network_server_tests(context);
+    tests::run_power_tests(context);
     tests::run_font_tests(context);
     std::cout << context.checks() << " checks, " << context.failures()
               << " failures\n";

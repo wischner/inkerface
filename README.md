@@ -15,7 +15,9 @@ sees.
 - **Storage:** files and directories on internal flash (LittleFS) and the
   SD card.
 - **Networking:** Wi-Fi, HTTP(S) web API calls and TCP/TLS sockets, using
-  FreeInk's HTTP client on both targets.
+  FreeInk's HTTP client on both targets; listening sockets, UDP with
+  broadcast, network scans, and a soft access point for setting a device
+  up from a phone.
 - **Threads:** standard C++ threads, set up for the device automatically.
 
 The project standards are [docs/standards/C++.md](docs/standards/C++.md). The
@@ -36,7 +38,8 @@ lib/inkerface/src/   platform layer, the only code that includes FreeInk
   common/            storage, file and directory logic shared by all targets
   posix/             POSIX file primitives for X4 internal flash
   net/               sockets and HTTP on FreeInk's SecureClient and
-                     SecureHttpClient (shared by all targets)
+                     SecureHttpClient; listener and UDP over BSD sockets
+                     (shared by all targets)
   host/              native backend: in-memory X4 panel, stdin input, disk
                      images (littlefs/FAT), OpenSSL TLS, main()
     arduino/         minimal Arduino API (POSIX sockets) for FreeInk's

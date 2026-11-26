@@ -1,7 +1,9 @@
 //
 // Declares the network link (Wi-Fi on the device) and the errors every
 // network operation reports. Sockets and HTTP requests are made through
-// socket.h and http.h, and both need a connected network.
+// socket.h and http.h, and both need a connected network. The link can
+// also scan for networks and become an access point of its own, which is
+// how a device with no keyboard is set up from a phone.
 //
 // MIT License (see: LICENSE)
 // Copyright (C) 2026 Tomaz Stih
@@ -12,7 +14,10 @@
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <vector>
 
 namespace inkerface {
 
@@ -51,7 +56,32 @@ enum class net_error : std::uint8_t {
     // The response body exceeded http_request::max_body_bytes.
     too_large,
     // The response body ended early.
-    incomplete
+    incomplete,
+    // A local port could not be taken: it is in use, or the program may
+    // not use it (ports below 1024 on the host).
+    bind
+};
+
+// One network a scan found.
+struct wifi_network {
+    // Network name.
+    std::string ssid{};
+    // Received signal strength in dBm: about -50 is excellent, below -80
+    // barely usable.
+    int rssi = -100;
+    // True when the network asks for a password.
+    bool secured = true;
+};
+
+// The program's own Wi-Fi network, while it is one.
+struct access_point {
+    // This device's address on its own network, such as "192.168.4.1".
+    std::string address{};
+    // True on the host, which creates no network: address is the
+    // machine's own LAN address and other devices reach it over the
+    // network the machine is already on. Servers there should use ports
+    // above 1023.
+    bool emulated = false;
 };
 
 // The program's network link.
@@ -95,8 +125,50 @@ public:
     // Return true while the link is up.
     [[nodiscard]] bool connected() const;
 
+    //
+    // Look for networks in range.
+    //
+    // Returns:
+    //     The networks found, strongest first; empty when none were
+    //     found or the radio could not scan.
+    //
+    // Notes:
+    //     Blocks for a few seconds on the device while the radio listens
+    //     on every channel. The host has no radio and returns a fixed,
+    //     emulated list.
+    //
+    [[nodiscard]] std::vector<wifi_network> scan();
+
+    //
+    // Become a Wi-Fi access point that other devices can join.
+    //
+    // Parameters:
+    //     name     - Network name to broadcast, at most 32 bytes.
+    //     password - WPA2 password, 8 to 63 characters; empty for an open
+    //                network.
+    //
+    // Returns:
+    //     The access point, or std::nullopt when it could not start.
+    //
+    // Notes:
+    //     Leaves any joined network first. While hosting, udp_socket and
+    //     tcp_listener work on the access point's own network, so a phone
+    //     that joins can be served. connect() ends hosting. The password
+    //     is not stored or logged.
+    //
+    [[nodiscard]] std::optional<access_point>
+    start_access_point(std::string_view name, std::string_view password);
+
+    // Stop being an access point and switch the radio off. Harmless when
+    // not hosting.
+    void stop_access_point();
+
+    // Return true while this program is an access point.
+    [[nodiscard]] bool hosting() const;
+
 private:
     bool joined_ = false;
+    bool hosting_ = false;
 };
 
 } // namespace inkerface

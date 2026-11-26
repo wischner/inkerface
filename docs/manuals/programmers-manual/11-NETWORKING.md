@@ -2,7 +2,10 @@
 
 A reader fetches catalogs, syncs reading positions and downloads books.
 In this chapter you join Wi-Fi, call a web API, stream a download onto
-the SD card, and talk to a server over a plain TCP socket.
+the SD card, and talk to a server over a plain TCP socket. Then you turn
+it around: accept connections, find other devices by broadcast, and
+become an access point, which is how a device with no keyboard is set
+up from a phone.
 
 ## The classes
 
@@ -11,9 +14,13 @@ the SD card, and talk to a server over a plain TCP socket.
 | `<inkerface/network.h>` | `network` | the link: joins Wi-Fi on the X4, switches the radio off |
 | `<inkerface/http.h>` | `http_client` | HTTP and HTTPS requests to web APIs |
 | `<inkerface/socket.h>` | `tcp_socket` | a TCP connection, optionally with TLS, for other protocols |
+| `<inkerface/socket.h>` | `tcp_listener` | accepts TCP connections from other devices |
+| `<inkerface/socket.h>` | `udp_socket` | datagrams, and broadcasts to the whole local network |
 
 A program creates **one** `network`. Sockets and clients are made *on*
-it, and fail with `net_error::not_connected` while it is down.
+it, and fail with `net_error::not_connected` while it is down. A
+listener and a UDP socket also work while the network is *hosting*, that
+is, while the device is an access point of its own.
 
 Underneath, inkerface uses FreeInk's network code on both targets:
 `SecureHttpClient` for HTTP (framing, redirects, chunked bodies,
@@ -211,6 +218,90 @@ const std::size_t got = line.read(buffer);   // waits up to the timeout
 - TLS: set `socket_options{.tls = true, .ca_certificate = ...}`. The same
   rules as for HTTPS apply.
 
+## Serving and finding devices
+
+### Accepting connections
+
+`tcp_listener` listens on a port on every interface and hands each
+connection over as an ordinary `tcp_socket`:
+
+```cpp
+inkerface::tcp_listener server(link, 8080);
+if (!server) {
+    // server.error(): not_connected, or bind when the port is taken
+}
+inkerface::tcp_socket peer = server.accept();   // 0ms: never waits
+if (peer) {
+    // read and write it like any other tcp_socket
+}
+```
+
+`accept()` returns a closed socket (`is_open()` false, `error()` none)
+when nobody is waiting, so a main loop can call it on every pass.
+`accept(wait)` waits at most `wait`. Accepted connections are plain
+TCP; TLS is for outgoing connections only. On the desktop, ports below
+1024 need root, and asking for one is reported as `net_error::bind`.
+
+### Datagrams and broadcast
+
+`udp_socket` sends and receives single datagrams. `broadcast()` sends
+one to every device on the local network, which is how a device finds a
+server it was never told the address of:
+
+```cpp
+inkerface::udp_socket asker(link);              // any free port
+static_cast<void>(asker.broadcast(7001, std::as_bytes(std::span("who?", 4))));
+
+std::array<std::byte, 512> buffer{};
+inkerface::datagram_source from;
+const std::size_t got = asker.receive(buffer, from, 100ms);
+if (got > 0) {
+    // from.address and from.port say who answered
+}
+```
+
+- `receive()` returns one datagram, or 0 when none arrived within the
+  wait. With `0ms` it never waits, for polling from a main loop.
+- A datagram can be lost; ask again if no answer comes.
+- A failed send is reported by its return value and leaves the socket
+  open: the next one may well go through.
+- Where a broadcast goes is the platform's choice. On the X4 it is the
+  broadcast address of the joined network, or of the access point. On
+  the desktop it is every interface's broadcast address and loopback, so
+  a program on the same machine hears it too.
+
+### Becoming an access point
+
+A device with no keyboard cannot type a Wi-Fi password, so it becomes a
+network of its own, a phone joins it, and a page served by the device
+asks for the password:
+
+```cpp
+const auto networks = link.scan();       // strongest first; a few seconds
+const auto hosted = link.start_access_point("reader_1234", "k7mq4xvp");
+if (hosted) {
+    // hosted->address is where phones reach the device, "192.168.4.1"
+    inkerface::tcp_listener page(link, hosted->emulated ? 8080 : 80);
+    // ... serve a form, read the network and password from it ...
+}
+link.stop_access_point();
+static_cast<void>(link.connect(chosen_ssid, chosen_password));
+```
+
+- The password must be 8 to 63 characters (WPA2), or empty for an open
+  network. Show it on the panel; whoever can see the screen can join.
+- `connect()` ends hosting. So does `disconnect()`.
+- `scan()` keeps the access point up while it listens on every channel.
+- On the **desktop** there is no radio. `scan()` returns a fixed list,
+  and the access point is *emulated*: `hosted->emulated` is true and
+  `hosted->address` is the machine's own LAN address, so a real phone on
+  the same network can open your setup page. Use an unprivileged port
+  there.
+- A phone that finds no internet looks for a captive portal. Answering
+  DNS on UDP port 53 with the device's own address for every name, and
+  redirecting every unknown page to your form, makes the phone open the
+  form by itself.
+
 ## Example: fetch and save
 
 This program reads Wi-Fi credentials from `wifi.txt` on internal flash
@@ -394,7 +485,9 @@ shows how.
 `127.0.0.1` in the test process. Each test connection gets a prepared
 answer, and the test checks what the client sent. This tests the real
 client code without internet access. Copy that pattern to test your own
-protocol code.
+protocol code. `tests/unit/test_network_server.cpp` does the same for
+the server side: a listener and a client in one process, datagrams and a
+broadcast over loopback, and the emulated access point.
 
 ## Summary
 
@@ -406,5 +499,10 @@ protocol code.
   and a CA certificate, so check the licence first.
 - `tcp_socket` covers other protocols; a read that times out is not an
   error.
+- `tcp_listener` accepts connections; `udp_socket` sends datagrams and
+  broadcasts; both work on a joined network and on the device's own
+  access point.
+- `start_access_point()` and `scan()` let a phone set the device up. On
+  the desktop both are emulated.
 
 Next: [Multithreading](12-MULTITHREADING.md).

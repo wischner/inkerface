@@ -124,6 +124,25 @@ device frames for the same panel geometry.
   - `tcp_socket::read(out, wait)` bounds the wait per call; with 0 it
     returns at once (still detecting a closed peer), so a single-threaded
     loop can poll a socket. `read(out)` uses the socket's timeout.
+  - `tcp_listener` and `udp_socket` are written once in `net/listener.cpp`
+    and `net/udp.cpp` over the BSD socket calls, which glibc provides on
+    the host and lwIP on the X4 (`net/descriptor.cpp` holds the shared
+    helpers; `<sys/poll.h>`, which both have, bounds every wait). An
+    accepted descriptor is adopted by a `WiFiClient` (Arduino-ESP32's
+    `WiFiClient(int)`, mirrored by the host shim), so an accepted
+    connection is an ordinary `tcp_socket` and reads through the same
+    code. Accepted connections are plain TCP.
+  - Where a broadcast goes is the one platform hook
+    (`net/net_platform.h`): every interface's broadcast address plus
+    loopback on the host, `WiFi.broadcastIP()` or
+    `WiFi.softAPBroadcastIP()` on the X4.
+  - `network::start_access_point()` is Arduino-ESP32's soft AP on the X4
+    (`WIFI_AP`, credentials not persisted) and an emulation on the host,
+    which reports the machine's own LAN address and `emulated = true`.
+    `scan()` is `WiFi.scanNetworks()`, run in `WIFI_AP_STA` while
+    hosting so a phone on the access point stays connected; the host
+    returns a fixed list. Sockets accept a link that is connected or
+    hosting.
 - **Linking on the X4.** Libraries are linked from archives
   (`lib_archive = yes`), so unused storage and networking cost no flash;
   pioarduino disables archives unless the option is set explicitly. The

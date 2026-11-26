@@ -1,7 +1,8 @@
 //
 // Implements the Xteink X4 input source on FreeInk's InputManager. The
 // button roles follow the FreeInk convention: UP/DOWN move focus,
-// LEFT/RIGHT turn pages, CONFIRM/BACK act.
+// LEFT/RIGHT turn pages, CONFIRM/BACK act. The power button reports
+// `power` once it has been held for power_hold_ms, once per hold.
 //
 // MIT License (see: LICENSE)
 // Copyright (C) 2026 Tomaz Stih
@@ -23,6 +24,10 @@ namespace {
 // Poll pacing; keeps the loop near 100 Hz without busy-waiting.
 constexpr std::uint32_t poll_interval_ms = 10;
 
+// How long the power button must be held to mean "switch off". Long
+// enough that a knock does not count, short enough to feel immediate.
+constexpr unsigned long power_hold_ms = 1000;
+
 } // namespace
 
 // Device input state: the FreeInk button/touch manager.
@@ -42,11 +47,27 @@ public:
         snapshot.focus_prev = buttons_.wasPressed(InputManager::BTN_UP);
         snapshot.page_next = buttons_.wasPressed(InputManager::BTN_RIGHT);
         snapshot.page_prev = buttons_.wasPressed(InputManager::BTN_LEFT);
+        snapshot.power = power_held();
         return snapshot;
     }
 
 private:
+    // Return true once per hold, when the hold reaches power_hold_ms.
+    bool power_held() {
+        if (!buttons_.isPressed(InputManager::BTN_POWER)) {
+            power_reported_ = false;
+            return false;
+        }
+        if (power_reported_ ||
+            buttons_.getPowerButtonHeldTime() < power_hold_ms) {
+            return false;
+        }
+        power_reported_ = true;
+        return true;
+    }
+
     InputManager buttons_;
+    bool power_reported_ = false;
 };
 
 } // namespace inkerface::detail

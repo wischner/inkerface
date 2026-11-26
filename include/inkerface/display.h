@@ -97,6 +97,9 @@ public:
     void reset_font(font face);
 
 private:
+    // Puts the panel to sleep, which only the backend can do. See power.h.
+    friend void power_off(display &screen);
+
     std::unique_ptr<detail::display_backend> backend_;
 };
 

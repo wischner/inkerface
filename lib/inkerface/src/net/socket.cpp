@@ -13,6 +13,8 @@
 
 #include "net_time.h"
 
+#include "socket_backend.h"
+
 #include <Arduino.h>
 #include <Client.h>
 #include <SecureClient.h>
@@ -23,15 +25,6 @@
 #include <utility>
 
 namespace inkerface::detail {
-
-// One connection. Both clients are members so no heap object or virtual
-// construction is needed; active points at the one in use.
-class socket_backend {
-public:
-    WiFiClient plain;
-    freeink::SecureClient secure;
-    Client *active = nullptr;
-};
 
 void net_deleter::operator()(socket_backend *backend) const noexcept {
     if (backend != nullptr && backend->active != nullptr) {
@@ -93,6 +86,11 @@ tcp_socket::tcp_socket(network &link,
     }
     backend_ = std::move(connection);
 }
+
+tcp_socket::tcp_socket(detail::socket_handle backend,
+                       std::chrono::milliseconds timeout)
+    : backend_(std::move(backend))
+    , timeout_(timeout) {}
 
 tcp_socket::~tcp_socket() = default;
 

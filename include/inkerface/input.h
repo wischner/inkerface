@@ -29,10 +29,15 @@ struct input_snapshot {
     bool page_next = false;
     bool page_prev = false;
 
+    // The power button was held long enough to mean "switch off", about a
+    // second. Reported once per hold; a brief press does not count, so a
+    // bumped button cannot switch a device off. See power.h.
+    bool power = false;
+
     // Return true when at least one action occurred.
     [[nodiscard]] constexpr bool any() const {
         return confirm || back || focus_next || focus_prev || page_next ||
-               page_prev;
+               page_prev || power;
     }
 };
 

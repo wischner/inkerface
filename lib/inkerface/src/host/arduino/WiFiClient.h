@@ -17,6 +17,11 @@
 class WiFiClient : public Client {
 public:
     WiFiClient() = default;
+
+    // Adopt a connected socket, as Arduino-ESP32's WiFiClient(int) does.
+    // The descriptor is made non-blocking and closed by stop().
+    explicit WiFiClient(int descriptor);
+
     ~WiFiClient() override;
 
     WiFiClient(const WiFiClient &) = delete;
